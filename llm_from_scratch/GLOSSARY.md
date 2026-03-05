@@ -99,3 +99,71 @@
 - `B`: batch 크기
 - 예: `(B, T, D)` = “배치 B개, 각 샘플 길이 T, 각 토큰 벡터 길이 D”
 
+---
+
+## 파인튜닝/후처리 학습(Post-training) 용어
+
+- **pre-training(사전학습)**: 아주 큰 텍스트로 “다음 토큰 맞히기”를 오래 학습해 base model을 만드는 단계.
+- **post-training(후처리 학습)**: base model을 목적에 맞게 “규칙/태스크/안전/말투”를 더 잘 따르게 만드는 추가 학습.
+- **base model(베이스 모델)**: 사전학습만 된 모델(범용 능력).
+- **fine-tuned model(파인튜닝 모델)**: 후처리 학습을 거친 모델(특정 사용 방식/태스크에 강함).
+- **checkpoint(체크포인트)**: 학습 중간/결과의 모델 가중치 저장본.
+- **SFT(Supervised Fine-Tuning)**: (입력, 정답) 쌍으로 하는 지도학습 파인튜닝. 가장 기본.
+- **instruction tuning**: “지시문(instruction) → 답변(output)” 데이터로 SFT 하는 것.
+- **chat template**: `system/user/assistant` 같은 역할(role)을 포함해 대화형 데이터를 텍스트로 표현하는 규칙.
+- **ground truth(정답 데이터)**: 사람이 만들거나 검수한 “정답” 라벨/답변.
+- **label masking**: 프롬프트 구간은 loss 계산에서 제외하고(무시하고), 답변 구간만 맞히도록 학습하는 기법.
+- **RAG(Retrieval-Augmented Generation)**: 모델이 답하기 전에 외부 문서/DB에서 정보를 검색해 컨텍스트로 붙이는 방식.
+
+---
+
+## 선호/안전 계열 용어(개념만 알아도 OK)
+
+- **preference data(선호 데이터)**: 같은 질문에 대해 “좋은 답/나쁜 답”처럼 비교가 들어간 데이터.
+- **RLHF**: 사람 선호를 보상으로 만들어 RL로 최적화하는 방식(복잡/비용 큼).
+- **DPO**: RL 없이, 선호 쌍 데이터로 직접 최적화하는 방식(실무에서 자주 언급됨).
+- **ORPO**: SFT + preference를 한 번의 목적함수로 다루는 변형(개념만).
+- **safety tuning**: 유해/금지 응답을 줄이기 위한 후처리 학습.
+
+---
+
+## LoRA/QLoRA(가볍게 학습하기) 용어
+
+- **PEFT(Parameter-Efficient Fine-Tuning)**: 전체 파라미터를 다 업데이트하지 않고, “일부/추가 파라미터”만 학습하는 계열.
+- **LoRA**: 큰 행렬을 직접 업데이트하지 않고, 작은 low-rank 업데이트(추가 행렬)만 학습하는 기법.
+- **QLoRA**: base model 가중치를 4-bit로 줄여 VRAM을 아끼면서 LoRA로 학습하는 방식(프레임워크/커널 제약이 있을 수 있음).
+
+---
+
+## 학습 최적화/메모리 용어(VRAM 관련)
+
+- **VRAM**: GPU 메모리. 파인튜닝에서 가장 먼저 막히는 자원.
+- **FP16/BF16**: 16비트 부동소수점 정밀도. FP32보다 VRAM을 덜 쓰는 대신, 안정성/지원 여부 차이가 있음.
+- **mixed precision(혼합 정밀도)**: 일부는 FP16/BF16으로, 일부는 FP32로 계산해 속도/안정성을 맞추는 기법.
+- **micro-batch**: VRAM 때문에 실제로 한 번에 올리는 작은 배치.
+- **gradient accumulation**: micro-batch 여러 번의 gradient를 누적해서 큰 배치처럼 학습하는 트릭.
+- **gradient checkpointing**: 중간 activation을 저장하지 않고 필요할 때 다시 계산해서 VRAM을 아끼는 트릭(느려짐).
+- **sequence length / max length**: 한 샘플에서 다루는 토큰 길이. 길이가 늘면 VRAM/시간이 크게 늘어나는 편.
+
+---
+
+## 평가/배포(운영) 용어
+
+- **eval loss**: 검증 데이터에서의 loss. “태스크 품질”과 항상 일치하지는 않음.
+- **structural validation(형식 검증)**: JSON 파싱/스키마/정규식으로 “출력 형식 준수”를 자동 검사.
+- **LLM-as-a-judge**: 다른 LLM을 채점기로 써서 품질을 평가하는 방식(기준/편향 주의).
+- **regression test(회귀 테스트)**: 새 버전이 이전 버전보다 나빠지지 않았는지 확인하는 고정 테스트.
+- **quantization(양자화)**: 가중치/연산을 낮은 비트로 바꿔 추론 비용/지연을 줄이는 방식.
+- **distillation(지식 증류)**: 큰 모델의 출력을 정답으로 삼아 작은 모델을 학습시키는 방식.
+
+---
+
+## (선택) 모델/토크나이저/서빙 문서에서 자주 보이는 용어
+
+- **SentencePiece**: BPE/Unigram 같은 서브워드 토크나이저를 학습/적용하는 도구(라이브러리 이름으로도 쓰임).
+- **vocab size**: 토큰 종류 수. 너무 작으면 표현력이 부족하고, 너무 크면 희귀 토큰이 많아질 수 있음.
+- **CJK**: Chinese/Japanese/Korean. 글자/서브워드 처리에서 자주 언급되는 범주.
+- **MQA(Multi-Query Attention)**: 여러 헤드가 같은 K/V를 공유해 KV 캐시 메모리를 줄이는 변형(주로 추론 최적화).
+- **GQA(Grouped-Query Attention)**: MQA와 일반 MHA 사이의 절충(일부 그룹이 K/V 공유).
+- **Sliding Window Attention**: 멀리 과거 전체를 보지 않고, 일정 창(window)만 보는 방식(긴 컨텍스트에서 비용 절감).
+

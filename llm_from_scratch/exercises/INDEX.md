@@ -9,3 +9,4 @@
 - `WEEK5.md` : Transformer forward 감 잡기
 - `WEEK6.md` : 샘플링/평가로 모델 비교
 - `WEEK7.md` : BPE 토크나이저 튜닝
+- `WEEK8.md` : (선택) 파인튜닝 선수지식(데이터/평가/운영 체크리스트)

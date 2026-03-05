@@ -35,6 +35,13 @@ def main() -> None:
     from minigpt import GPTConfig, MiniGPT
 
     args = parse_args()
+    top_k = None if args.top_k is None else int(args.top_k)
+    top_p = None if args.top_p is None else float(args.top_p)
+    if top_k is not None and top_k <= 0:
+        raise ValueError("top_k must be > 0")
+    if top_p is not None and not (0.0 < top_p <= 1.0):
+        raise ValueError("top_p must be in (0, 1]")
+
     ckpt = torch.load(Path(args.model), map_location="cpu")
     vocab = ckpt["vocab"]
     stoi = {ch: i for i, ch in enumerate(vocab)}
@@ -75,22 +82,18 @@ def main() -> None:
         logits_1d = logits_1d / temperature
         probs = F.softmax(logits_1d, dim=-1)
 
-        if args.top_k is not None:
-            k = int(args.top_k)
+        if top_k is not None:
+            k = min(top_k, int(probs.numel()))
             v, ix = torch.topk(probs, k)
             mask = torch.zeros_like(probs)
             mask[ix] = v
             probs = mask / mask.sum()
 
-        if args.top_p is not None and float(args.top_p) < 1.0:
-            p = float(args.top_p)
+        if top_p is not None and top_p < 1.0:
             sorted_probs, sorted_ix = torch.sort(probs, descending=True)
             cumsum = torch.cumsum(sorted_probs, dim=-1)
-            keep = cumsum <= p
-            if not torch.any(keep):
-                keep[0] = True
-            last = torch.where(keep)[0][-1]
-            keep_ix = sorted_ix[: last + 1]
+            cutoff = int((cumsum >= top_p).nonzero(as_tuple=False)[0].item())
+            keep_ix = sorted_ix[: cutoff + 1]
             mask = torch.zeros_like(probs)
             mask[keep_ix] = probs[keep_ix]
             probs = mask / mask.sum()

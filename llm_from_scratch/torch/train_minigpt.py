@@ -56,6 +56,8 @@ def main() -> None:
     n = int(0.9 * len(data))
     train_data = data[:n]
     val_data = data[n:]
+    if len(train_data) < 2 or len(val_data) < 2:
+        raise ValueError("Dataset is too short after train/val split; need at least 2 chars per split.")
 
     device = args.device
     if device == "auto":
@@ -78,9 +80,12 @@ def main() -> None:
 
     def get_batch(split: str):
         src = train_data if split == "train" else val_data
-        ix = torch.randint(0, len(src) - cfg.block_size - 1, (int(args.batch),))
-        x = torch.stack([src[i : i + cfg.block_size] for i in ix])
-        y = torch.stack([src[i + 1 : i + cfg.block_size + 1] for i in ix])
+        seq_len = min(cfg.block_size, len(src) - 1)
+        if seq_len <= 0:
+            raise ValueError(f"{split} split is too short for language-model training.")
+        ix = torch.randint(0, len(src) - seq_len, (int(args.batch),))
+        x = torch.stack([src[int(i) : int(i) + seq_len] for i in ix])
+        y = torch.stack([src[int(i) + 1 : int(i) + seq_len + 1] for i in ix])
         return x.to(device_t), y.to(device_t)
 
     @torch.no_grad()

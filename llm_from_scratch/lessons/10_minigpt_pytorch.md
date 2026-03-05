@@ -50,4 +50,5 @@ python llm_from_scratch/torch/generate_minigpt.py --model llm_from_scratch/model
 - 더 큰 데이터로 학습(뉴스/소설/위키 등)
 - BPE 토크나이저를 붙여서 시퀀스 길이 줄이기
 - 평가(perplexity) + 간단 벤치마크 만들기
+- (선택) 파인튜닝 입문(SFT/LoRA/QLoRA 용어/운영): `11_finetuning_essentials.md` → `12_lora_qlora_and_ops.md`
 

@@ -38,9 +38,12 @@ def main() -> None:
         start_ids = [int(x.strip()) for x in args.start_ids.split(",") if x.strip() != ""]
         if len(start_ids) != ckpt.context_len:
             raise ValueError(f"--start_ids must have exactly {ckpt.context_len} ids")
+        if not all(0 <= token_id < ckpt.tokenizer.vocab_size for token_id in start_ids):
+            raise ValueError("--start_ids contains out-of-range token id")
         context = np.array(start_ids, dtype=np.int64)
     else:
         context = ckpt.default_start_ids.copy()
+    initial_context = context.copy()
 
     out_ids: list[int] = []
     for _ in range(args.length):
@@ -50,7 +53,7 @@ def main() -> None:
         context = np.roll(context, -1)
         context[-1] = next_id
 
-    print(ckpt.tokenizer.decode(context.tolist()) + ckpt.tokenizer.decode(out_ids))
+    print(ckpt.tokenizer.decode(initial_context.tolist()) + ckpt.tokenizer.decode(out_ids))
 
 
 if __name__ == "__main__":

@@ -14,6 +14,8 @@
 5. `lessons/01_why_language_model.md` → `02_tokenization_char.md` → `03_bigram_counts.md` → `04_neural_bigram.md`
 6. `lessons/05_mlp_context_lm.md` → `06_self_attention.md` → `07_transformer_block.md`
 7. `lessons/08_sampling_and_eval.md` → `09_bpe_tokenizer.md`
+8. (선택) `lessons/10_minigpt_pytorch.md` : PyTorch로 MiniGPT 학습/생성
+9. (선택) `lessons/11_finetuning_essentials.md` → `12_lora_qlora_and_ops.md` : 파인튜닝 용어/운영 감각
 
 과제는 `exercises/INDEX.md`에서 주차별로 진행합니다.
 
@@ -91,11 +93,6 @@ python llm_from_scratch/code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe
 ## (선택) MiniGPT 학습(PyTorch)
 
 `lessons/10_minigpt_pytorch.md` 참고.
-
-## 참고(메모)
-
-- `gemini_learn.md`는 초안/아이디어 메모 성격의 문서입니다.  
-  실제 실습 흐름은 `CURRICULUM.md` + `lessons/` + `exercises/`를 기준으로 보세요.
 
 ## 우리가 만들 것(요약)
 

@@ -30,11 +30,12 @@
 ### LLM 트랙 (선택, PyTorch)
 4. **Self-Attention**을 직접 구현(프레임워크의 “Transformer 레이어”는 사용하지 않음)
 5. **MiniGPT(작은 Transformer LM)** 학습 + 샘플링(temperature/top-k)
-6. (선택) **토크나이저(BPE)**, **미니 파인튜닝**, **간단 평가(perplexity)**, **속도 개선**
+6. (선택) **토크나이저(BPE)**: 서브워드로 시퀀스 길이/희귀 토큰 문제를 다룸
+7. (선택) **파인튜닝 입문**: SFT(지도 파인튜닝), LoRA/QLoRA, 평가/배포에서 나오는 필수 용어/체크리스트
 
 ---
 
-## 2) 권장 시간표 (8주, 주 5~7시간 기준)
+## 2) 권장 시간표 (8주 + 확장 2주 옵션, 주 5~7시간 기준)
 
 ### Week 0 — 준비/감 잡기
 - LLM이 하는 일(다음 토큰 예측), 데이터/토큰/모델/학습의 큰 그림
@@ -67,7 +68,18 @@
 
 ### Week 7 — 마무리/확장 로드맵
 - 토크나이저(BPE), 더 큰 데이터/모델, 속도/메모리, 평가/안전
-- 실습: (선택) BPE 토크나이저 구현 + 파인튜닝 미니 프로젝트
+- 실습: (선택) BPE 토크나이저 구현 + 내 데이터로 “재학습/도메인 적응” 실험
+
+### Week 8 (선택) — 파인튜닝 선수지식(용어/흐름)
+- pre-training vs post-training, base model vs fine-tuned model
+- SFT(지도 파인튜닝), instruction/chat 데이터, ground truth, eval loss
+- prompt engineering vs fine-tuning vs RAG(언제 무엇을 쓰는지)
+- 실습: 파인튜닝 데이터 포맷(JSONL) 만들기 + 출력 구조 검증(형식/스키마)
+
+### Week 9 (선택) — LoRA/QLoRA + 운영 감각
+- LoRA/QLoRA(왜 필요한지, 무엇을 업데이트하는지)
+- VRAM/정밀도(FP16/BF16), gradient accumulation/checkpointing, 시퀀스 길이 튜닝
+- 평가/회귀 테스트, 추론 최적화(quantization/distillation, 프롬프트 단순화)
 
 ---
 

@@ -13,3 +13,5 @@
 - `08_sampling_and_eval.md` : temperature/top-k/top-p + perplexity
 - `09_bpe_tokenizer.md` : BPE 서브워드 토크나이저 구현
 - `10_minigpt_pytorch.md` : (선택) PyTorch로 MiniGPT 학습/생성
+- `11_finetuning_essentials.md` : (선택) 파인튜닝 필수 용어/흐름(SFT/RAG/RLHF/DPO/평가)
+- `12_lora_qlora_and_ops.md` : (선택) LoRA/QLoRA + 메모리/운영 체크리스트(VRAM/정밀도/양자화)

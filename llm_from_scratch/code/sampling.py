@@ -50,15 +50,9 @@ def _apply_top_p(probs: np.ndarray, p: float) -> np.ndarray:
     order = np.argsort(probs)[::-1]
     sorted_probs = probs[order]
     cumsum = np.cumsum(sorted_probs)
-    keep = cumsum <= p
-    # Ensure at least 1 token kept.
-    if not np.any(keep):
-        keep[0] = True
-    last_idx = int(np.where(keep)[0][-1])
-    keep_mask_sorted = np.zeros_like(sorted_probs, dtype=bool)
-    keep_mask_sorted[: last_idx + 1] = True
-
-    keep_ids = order[keep_mask_sorted]
+    # Keep the smallest prefix whose cumulative probability >= p.
+    cutoff = int(np.searchsorted(cumsum, p, side="left"))
+    keep_ids = order[: cutoff + 1]
     out = np.zeros_like(probs)
     out[keep_ids] = probs[keep_ids]
     s = out.sum()

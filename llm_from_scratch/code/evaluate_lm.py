@@ -56,6 +56,8 @@ def main() -> None:
         probs = counts_to_probs(counts, smoothing=float(args.smoothing))
 
         eval_ids = np.array(tok.encode(eval_text), dtype=np.int64)
+        if len(eval_ids) < 2:
+            raise ValueError("Eval text must contain at least 2 tokens/characters")
         prev_ids = eval_ids[:-1]
         next_ids = eval_ids[1:]
         p_next = probs[prev_ids, next_ids]
@@ -71,6 +73,8 @@ def main() -> None:
         ckpt = load_bigram_nn(args.model)
         eval_text = Path(args.eval).read_text(encoding="utf-8")
         eval_ids = np.array(ckpt.tokenizer.encode(eval_text), dtype=np.int64)
+        if len(eval_ids) < 2:
+            raise ValueError("Eval text must contain at least 2 tokens/characters")
         prev_ids = eval_ids[:-1]
         next_ids = eval_ids[1:]
         loss = float(eval_loss_bigram_nn(ckpt.W, prev_ids, next_ids))
