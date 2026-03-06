@@ -19,6 +19,12 @@
 
 과제는 `exercises/INDEX.md`에서 주차별로 진행합니다.
 
+## Quickstart (Week 0)
+
+```powershell
+python llm_from_scratch/code/demo_week0_dl_basics.py
+```
+
 ## Quickstart (Week 1)
 
 빅램 카운트 모델로 텍스트 생성:
@@ -37,12 +43,6 @@ python llm_from_scratch/code/inspect_bigrams.py --input llm_from_scratch/data/ti
 
 ```powershell
 python -m unittest discover -s llm_from_scratch/tests -p "test_*.py" -v
-```
-
-## Quickstart (Week 0)
-
-```powershell
-python llm_from_scratch/code/demo_week0_dl_basics.py
 ```
 
 ## Week 2~3 (학습/생성)
