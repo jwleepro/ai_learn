@@ -3,21 +3,21 @@
 이 폴더는 “LLM을 바닥부터 직접 만들어보는” 학습 프로젝트입니다.  
 수학은 최소로, 코드는 최대한으로 진행합니다.
 
-용어가 헷갈리면 먼저 `GLOSSARY.md`를 한 번만 훑고 오면 훨씬 빨라집니다.
+용어가 헷갈리면 먼저 [GLOSSARY](GLOSSARY.md)를 한 번만 훑고 오면 훨씬 빨라집니다.
 
 ## 시작 순서
 
-1. `CURRICULUM.md` : 전체 로드맵(주차별 목표/산출물)
-2. `GLOSSARY.md` : 용어/shape(배열 크기) 빠른 정리
-3. `lessons/00_setup.md` : 실습 환경 준비
-4. `lessons/00_dl_basics.md` : (Week 0) 딥러닝 기초를 코드로
-5. `lessons/01_why_language_model.md` → `02_tokenization_char.md` → `03_bigram_counts.md` → `04_neural_bigram.md`
-6. `lessons/05_mlp_context_lm.md` → `06_self_attention.md` → `07_transformer_block.md`
-7. `lessons/08_sampling_and_eval.md` → `09_bpe_tokenizer.md`
-8. (선택) `lessons/10_minigpt_pytorch.md` : PyTorch로 MiniGPT 학습/생성
-9. (선택) `lessons/11_finetuning_essentials.md` → `12_lora_qlora_and_ops.md` : 파인튜닝 용어/운영 감각
+1. [CURRICULUM.md](CURRICULUM.md) : 전체 로드맵(주차별 목표/산출물)
+2. [GLOSSARY.md](GLOSSARY.md) : 용어/shape(배열 크기) 빠른 정리
+3. [lessons/00_setup.md](lessons/00_setup.md) : 실습 환경 준비
+4. [lessons/00_dl_basics.md](lessons/00_dl_basics.md) : (Week 0) 딥러닝 기초를 코드로
+5. [lessons/01_why_language_model.md](lessons/01_why_language_model.md) → [02_tokenization_char.md](lessons/02_tokenization_char.md) → [03_bigram_counts.md](lessons/03_bigram_counts.md) → [04_neural_bigram.md](lessons/04_neural_bigram.md)
+6. [lessons/05_mlp_context_lm.md](lessons/05_mlp_context_lm.md) → [06_self_attention.md](lessons/06_self_attention.md) → [07_transformer_block.md](lessons/07_transformer_block.md)
+7. [lessons/08_sampling_and_eval.md](lessons/08_sampling_and_eval.md) → [09_bpe_tokenizer.md](lessons/09_bpe_tokenizer.md)
+8. (선택) [lessons/10_minigpt_pytorch.md](lessons/10_minigpt_pytorch.md) : PyTorch로 MiniGPT 학습/생성
+9. (선택) [lessons/11_finetuning_essentials.md](lessons/11_finetuning_essentials.md) → [12_lora_qlora_and_ops.md](lessons/12_lora_qlora_and_ops.md) : 파인튜닝 용어/운영 감각
 
-과제는 `exercises/INDEX.md`에서 주차별로 진행합니다.
+과제는 [exercises/INDEX.md](exercises/INDEX.md)에서 주차별로 진행합니다.
 
 ## Quickstart (Week 0)
 
@@ -92,7 +92,7 @@ python llm_from_scratch/code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe
 
 ## (선택) MiniGPT 학습(PyTorch)
 
-`lessons/10_minigpt_pytorch.md` 참고.
+[lessons/10_minigpt_pytorch.md](lessons/10_minigpt_pytorch.md) 참고.
 
 ## 우리가 만들 것(요약)
 

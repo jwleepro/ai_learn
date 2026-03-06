@@ -85,3 +85,9 @@ logits(점수) `z`가 있을 때:
 > 구현 참고: `llm_from_scratch/code/bigram_nn.py`
 
 코드는 이미 `llm_from_scratch/code/`에 준비되어 있으니, Week 2 과제에서 바로 실행해보세요.
+
+---
+
+과제: [WEEK2](../exercises/WEEK2.md)
+
+[← 이전: 빅램 카운트 모델](03_bigram_counts.md) | [목차](INDEX.md) | [다음: MLP 언어모델 →](05_mlp_context_lm.md)

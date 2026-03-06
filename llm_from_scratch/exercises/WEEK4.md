@@ -1,5 +1,7 @@
 # Week 4 과제: Attention 감각 만들기
 
+> 관련 레슨: [06_self_attention — Self-Attention](../lessons/06_self_attention.md)
+
 목표: “attention 가중치가 무엇을 의미하는지”를 직접 출력해보고 이해합니다.
 
 ---

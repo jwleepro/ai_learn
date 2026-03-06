@@ -69,3 +69,8 @@
 
 이제부터는 “문서만 읽고 끝”이 아니라, 곧바로 **실습 코드**로 이어갑니다.
 
+---
+
+과제: [WEEK1](../exercises/WEEK1.md)
+
+[← 이전: 글자 토큰화](02_tokenization_char.md) | [목차](INDEX.md) | [다음: 신경망 빅램 LM →](04_neural_bigram.md)

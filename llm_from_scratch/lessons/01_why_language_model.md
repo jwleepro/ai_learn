@@ -72,7 +72,8 @@ hello
 
 ---
 
-## 6) 다음 레슨
+---
 
-`02_tokenization_char.md`에서 글자 토큰화(텍스트↔숫자)를 구현 관점으로 정리합니다.
+과제: [WEEK1](../exercises/WEEK1.md)
 
+[← 이전: 딥러닝 기초](00_dl_basics.md) | [목차](INDEX.md) | [다음: 글자 토큰화 →](02_tokenization_char.md)

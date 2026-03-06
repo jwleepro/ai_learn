@@ -1,5 +1,7 @@
 # Week 7 과제: BPE 토크나이저 튜닝
 
+> 관련 레슨: [09_bpe_tokenizer — BPE 토크나이저 직접 만들기](../lessons/09_bpe_tokenizer.md)
+
 목표: merge 수를 바꿔가며 토큰이 어떻게 바뀌는지 관찰합니다.
 
 ---

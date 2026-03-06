@@ -73,8 +73,8 @@ LLM의 MLP(FFN) 안에도 이런 비선형이 들어갑니다.
 
 ---
 
-## 5) 다음으로
+---
 
-- 이 레슨 과제: `llm_from_scratch/exercises/WEEK0.md`
-- LLM 본격 진입: `01_why_language_model.md` → `03_bigram_counts.md`
+과제: [WEEK0](../exercises/WEEK0.md)
 
+[← 이전: 실습 환경 준비](00_setup.md) | [목차](INDEX.md) | [다음: 언어모델이 하는 일 →](01_why_language_model.md)

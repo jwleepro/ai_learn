@@ -1,5 +1,7 @@
 # Week 3 과제 (Core / numpy): MLP LM
 
+> 관련 레슨: [05_mlp_context_lm — MLP 언어모델](../lessons/05_mlp_context_lm.md)
+
 목표: 컨텍스트 길이 `k`를 늘려보며, “문맥을 본다”가 모델 품질에 어떤 영향을 주는지 경험합니다.
 
 ---

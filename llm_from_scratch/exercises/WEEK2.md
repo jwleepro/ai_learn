@@ -1,5 +1,7 @@
 # Week 2 과제 (Core / numpy): 신경망 빅램 LM
 
+> 관련 레슨: [04_neural_bigram — 신경망 빅램 LM](../lessons/04_neural_bigram.md)
+
 목표: 카운트 대신 **학습되는 가중치(W)**로 `P(next|prev)`를 만들고, loss가 실제로 내려가는 경험을 합니다.
 
 ---

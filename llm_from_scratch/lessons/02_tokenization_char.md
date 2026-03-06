@@ -54,7 +54,8 @@ hello
 
 ---
 
-## 5) 다음 레슨
+---
 
-`03_bigram_counts.md`에서 “카운트 기반 빅램 모델”로 실제로 텍스트를 생성해봅니다.
+과제: [WEEK1](../exercises/WEEK1.md)
 
+[← 이전: 언어모델이 하는 일](01_why_language_model.md) | [목차](INDEX.md) | [다음: 빅램 카운트 모델 →](03_bigram_counts.md)

@@ -2,7 +2,7 @@
 
 목표: Transformer의 핵심인 self-attention을 “수식”이 아니라 **계산 흐름**으로 이해하고, 실제 가중치(attention weights)를 눈으로 봅니다.
 
-> 용어/shape(배열 크기)가 헷갈리면 `../GLOSSARY.md`를 먼저 보고 오세요.
+> 용어/shape(배열 크기)가 헷갈리면 [GLOSSARY](../GLOSSARY.md)를 먼저 보고 오세요.
 
 ---
 
@@ -78,3 +78,9 @@ causal을 끄면(반칙 모드) 무엇이 달라지는지도 비교해보세요:
 ```powershell
 python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 20 --pos 19 --top 8 --no_causal
 ```
+
+---
+
+과제: [WEEK4](../exercises/WEEK4.md)
+
+[← 이전: MLP 언어모델](05_mlp_context_lm.md) | [목차](INDEX.md) | [다음: Transformer 블록 →](07_transformer_block.md)

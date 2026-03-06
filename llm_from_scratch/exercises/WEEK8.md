@@ -2,7 +2,7 @@
 
 목표: “파인튜닝을 돌릴 수 있는 상태”가 되려면 무엇을 준비해야 하는지 감을 잡습니다.
 
-> 레슨: `../lessons/11_finetuning_essentials.md`, `../lessons/12_lora_qlora_and_ops.md`
+> 관련 레슨: [11_finetuning_essentials — 파인튜닝 필수 용어/흐름](../lessons/11_finetuning_essentials.md), [12_lora_qlora_and_ops — LoRA/QLoRA + 운영](../lessons/12_lora_qlora_and_ops.md)
 
 ---
 

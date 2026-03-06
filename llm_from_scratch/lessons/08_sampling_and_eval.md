@@ -62,3 +62,9 @@ python llm_from_scratch/code/evaluate_lm.py counts_bigram --train llm_from_scrat
 python llm_from_scratch/code/evaluate_lm.py bigram_nn --model llm_from_scratch/models/bigram_nn.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
 python llm_from_scratch/code/evaluate_lm.py mlp_lm --model llm_from_scratch/models/mlp_lm.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
 ```
+
+---
+
+과제: [WEEK6](../exercises/WEEK6.md)
+
+[← 이전: Transformer 블록](07_transformer_block.md) | [목차](INDEX.md) | [다음: BPE 토크나이저 →](09_bpe_tokenizer.md)

@@ -5,7 +5,7 @@
 - 파인튜닝 글에서 자주 나오는 용어(SFT/RAG/RLHF/DPO 등)를 “언제/왜 쓰는지”까지 연결합니다.
 - 파인튜닝을 시작하기 전에 필요한 지식(데이터/학습/평가/운영)을 체크리스트로 정리합니다.
 
-> 용어가 계속 헷갈리면 `../GLOSSARY.md`의 “파인튜닝/운영” 섹션을 먼저 훑으세요.
+> 용어가 계속 헷갈리면 [GLOSSARY](../GLOSSARY.md)의 “파인튜닝/운영” 섹션을 먼저 훑으세요.
 
 ---
 
@@ -102,7 +102,8 @@
 - “형식 준수”를 자동으로 검사할 수 있다(파서/정규식/스키마)
 - 프롬프트를 줄이고도 성능이 유지되는지 비교할 수 있다(비용/지연)
 
-다음 레슨:
+---
 
-- LoRA/QLoRA와 VRAM 이슈는 `12_lora_qlora_and_ops.md`에서 다룹니다.
+과제: [WEEK8](../exercises/WEEK8.md)
 
+[← 이전: MiniGPT (PyTorch)](10_minigpt_pytorch.md) | [목차](INDEX.md) | [다음: LoRA/QLoRA + 운영 →](12_lora_qlora_and_ops.md)

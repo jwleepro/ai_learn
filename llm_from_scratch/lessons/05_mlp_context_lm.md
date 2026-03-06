@@ -2,7 +2,7 @@
 
 목표: “직전 1글자만 보는 빅램”에서 벗어나, 최근 `k`개 글자를 보고 다음 글자를 예측하는 모델을 직접 학습합니다.
 
-> 용어/shape(배열 크기)가 헷갈리면 `../GLOSSARY.md`를 먼저 보고 오세요.
+> 용어/shape(배열 크기)가 헷갈리면 [GLOSSARY](../GLOSSARY.md)를 먼저 보고 오세요.
 
 ---
 
@@ -96,3 +96,9 @@ python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/
 1. `context`를 2→8→16으로 키우면, 어떤 점이 좋아지고 어떤 점이 나빠질까요?
 2. `embed`와 `hidden`을 키우면 어떤 일이 생길까요?
 3. `epochs`를 늘리면 항상 좋아질까요? (train vs val 관찰)
+
+---
+
+과제: [WEEK3](../exercises/WEEK3.md)
+
+[← 이전: 신경망 빅램 LM](04_neural_bigram.md) | [목차](INDEX.md) | [다음: Self-Attention →](06_self_attention.md)

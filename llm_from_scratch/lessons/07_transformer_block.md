@@ -5,7 +5,7 @@
 이번 주는 (현재 폴더의 numpy 환경 기준) **전방향(forward) 계산 흐름**을 확인하는 데 초점을 둡니다.  
 학습(역전파 포함)은 PyTorch 트랙에서 다루는 것이 현실적입니다.
 
-> 용어/shape(배열 크기)가 헷갈리면 `../GLOSSARY.md`를 먼저 보고 오세요.
+> 용어/shape(배열 크기)가 헷갈리면 [GLOSSARY](../GLOSSARY.md)를 먼저 보고 오세요.
 
 ---
 
@@ -78,6 +78,8 @@ python llm_from_scratch/code/demo_transformer_forward.py --input llm_from_scratc
 
 ---
 
-## 5) 다음 주(Week 6): 생성(샘플링) 전략
+---
 
-Transformer든 MLP든, 마지막 logits에서 샘플링을 어떻게 하느냐가 품질을 크게 좌우합니다.
+과제: [WEEK5](../exercises/WEEK5.md)
+
+[← 이전: Self-Attention](06_self_attention.md) | [목차](INDEX.md) | [다음: 샘플링 & 평가 →](08_sampling_and_eval.md)

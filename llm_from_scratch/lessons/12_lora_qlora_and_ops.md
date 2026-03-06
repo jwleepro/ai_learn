@@ -106,3 +106,8 @@
   - “형식 준수”와 “내용 품질”을 분리해 평가
   - 학습률/스텝/early stopping(과적합)을 점검
 
+---
+
+과제: [WEEK8](../exercises/WEEK8.md)
+
+[← 이전: 파인튜닝 필수 용어](11_finetuning_essentials.md) | [목차](INDEX.md)

@@ -1,5 +1,7 @@
 # Week 1 과제 (Core / numpy)
 
+> 관련 레슨: [01_why_language_model](../lessons/01_why_language_model.md), [02_tokenization_char](../lessons/02_tokenization_char.md), [03_bigram_counts](../lessons/03_bigram_counts.md)
+
 목표: “다음 글자 예측”이 실제로 돌아간다는 감각을 잡고, 결과를 스스로 분석해봅니다.
 
 ---

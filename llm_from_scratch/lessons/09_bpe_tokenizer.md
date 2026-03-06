@@ -59,3 +59,9 @@ python llm_from_scratch/code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe
 
 1. merge 횟수를 50→200→1000으로 늘리면 어떤 변화가 생길까요?
 2. vocab이 너무 커지면 모델/학습에는 어떤 부담이 생길까요?
+
+---
+
+과제: [WEEK7](../exercises/WEEK7.md)
+
+[← 이전: 샘플링 & 평가](08_sampling_and_eval.md) | [목차](INDEX.md) | [다음: MiniGPT (PyTorch) →](10_minigpt_pytorch.md)

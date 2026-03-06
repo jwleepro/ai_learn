@@ -1,5 +1,7 @@
 # Week 5 과제: Transformer 블록 감 잡기
 
+> 관련 레슨: [07_transformer_block — Transformer 블록 조립하기](../lessons/07_transformer_block.md)
+
 목표: Transformer의 “조립 구조”를 실행으로 확인합니다.
 
 ---
