@@ -56,11 +56,12 @@ class TransformerParams:
 
 
 def layer_norm(x: np.ndarray, g: np.ndarray, b: np.ndarray, *, eps: float = 1e-5) -> np.ndarray:
+    # 벡터를 "평균 0, 퍼진 정도 1" 근처로 맞추는 정규화입니다.
     # x: (..., D)
-    mean = x.mean(axis=-1, keepdims=True)
-    var = ((x - mean) ** 2).mean(axis=-1, keepdims=True)
-    x_hat = (x - mean) / np.sqrt(var + eps)
-    return x_hat * g + b
+    mean = x.mean(axis=-1, keepdims=True)                         # 평균
+    var = ((x - mean) ** 2).mean(axis=-1, keepdims=True)          # 분산(값들이 평균에서 얼마나 퍼졌는지)
+    x_hat = (x - mean) / np.sqrt(var + eps)                       # 정규화: (값-평균) / 퍼진정도
+    return x_hat * g + b  # 학습 가능한 스케일(g)과 시프트(b)로 다시 조정
 
 
 def init_params(cfg: TransformerConfig) -> TransformerParams:
@@ -129,6 +130,7 @@ def mha(x: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, Wo: np.nd
     K = (x @ Wk).reshape(T, n_heads, Dh).transpose(1, 0, 2)  # (H, T, Dh)
     V = (x @ Wv).reshape(T, n_heads, Dh).transpose(1, 0, 2)  # (H, T, Dh)
 
+    # 내적으로 관련도 점수를 매기고, sqrt(Dh)로 나눠서 점수가 과하게 커지는 걸 방지
     scores = (Q @ K.transpose(0, 2, 1)) / np.sqrt(float(Dh))  # (H, T, T)
     if causal:
         mask = np.triu(np.ones((T, T), dtype=bool), k=1)

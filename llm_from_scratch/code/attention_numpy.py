@@ -53,6 +53,8 @@ def self_attention(
     V = X @ Wv  # (T, Dh)
 
     Dh = Q.shape[1]
+    # 내적(dot product)으로 "두 토큰이 얼마나 관련 있는지" 점수를 매기고,
+    # sqrt(Dh)로 나눠서 벡터가 길어질수록 점수가 과하게 커지는 걸 방지합니다.
     scores = (Q @ K.T) / np.sqrt(float(Dh))  # (T, T)
     if causal:
         scores = causal_mask(scores)

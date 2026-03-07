@@ -82,12 +82,20 @@ def forward(params: MLPLMParams, X: np.ndarray) -> tuple[np.ndarray, dict[str, n
 
 
 def loss_and_grads(params: MLPLMParams, X: np.ndarray, y: np.ndarray) -> tuple[float, MLPLMParams]:
-    """cross-entropy loss와 파라미터 gradient를 계산합니다."""
+    """loss(정답을 얼마나 잘 맞히는지)와 각 파라미터의 기울기를 계산합니다.
+
+    아래 역전파(backpropagation) 코드는 "loss를 줄이려면 각 파라미터를
+    어느 방향으로 바꿔야 하는지"를 거꾸로 추적하는 과정입니다.
+    공식 유도는 생략하고, 코드의 shape 흐름만 따라가도 괜찮습니다.
+    """
 
     logits, cache = forward(params, X)
     log_probs = log_softmax(logits, axis=1)
+    # loss: 정답 토큰의 확률이 높을수록 작아지는 값
     loss = float(-log_probs[np.arange(len(y)), y].mean())
 
+    # --- 역전파: 출력층 → 은닉층 → 임베딩 순으로 기울기를 전파 ---
+    # 출력층 기울기 (bigram_nn과 동일한 softmax 성질 활용)
     probs = np.exp(log_probs)
     dlogits = probs
     dlogits[np.arange(len(y)), y] -= 1.0
@@ -97,13 +105,16 @@ def loss_and_grads(params: MLPLMParams, X: np.ndarray, y: np.ndarray) -> tuple[f
     dW2 = h.T @ dlogits
     db2 = dlogits.sum(axis=0)
 
+    # 은닉층 기울기
     dh = dlogits @ params.W2.T
+    # tanh 활성화의 기울기: tanh 출력이 0에 가까우면 잘 통과, ±1에 가까우면 거의 차단
     dh_pre = dh * (1.0 - np.tanh(cache["h_pre"]) ** 2)
 
     h_in = cache["h_in"]
     dW1 = h_in.T @ dh_pre
     db1 = dh_pre.sum(axis=0)
 
+    # 임베딩 기울기
     dh_in = dh_pre @ params.W1.T  # (B, C*D)
     dEmb = dh_in.reshape(cache["emb"].shape)  # (B, C, D)
 

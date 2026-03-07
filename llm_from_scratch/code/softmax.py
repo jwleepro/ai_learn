@@ -1,6 +1,7 @@
 """softmax / log_softmax (numpy).
 
-수치적으로 안정(stable)하게 계산하기 위해 max-shift를 사용합니다.
+점수(logits)를 확률로 바꾸는 함수입니다.
+큰 수를 먼저 빼서(max-shift) 계산이 터지지 않게 합니다.
 """
 
 from __future__ import annotations
