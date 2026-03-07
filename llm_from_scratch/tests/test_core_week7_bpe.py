@@ -1,3 +1,5 @@
+"""학습자용 Week 7 핵심 스모크 테스트."""
+
 import sys
 import unittest
 from pathlib import Path

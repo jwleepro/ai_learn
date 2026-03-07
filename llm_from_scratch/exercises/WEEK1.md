@@ -73,7 +73,13 @@ python llm_from_scratch/code/inspect_bigrams.py --input llm_from_scratch/data/ti
 
 ## 자기 점검(자동)
 
-아래가 통과하면 Week 1 준비 완료입니다:
+아래가 통과하면 Week 1 핵심 흐름은 OK입니다:
+
+```powershell
+python -m unittest discover -s llm_from_scratch/tests -p "test_core_week1.py" -v
+```
+
+전체 단위 테스트가 필요하면:
 
 ```powershell
 python -m unittest discover -s llm_from_scratch/tests -p "test_*.py" -v

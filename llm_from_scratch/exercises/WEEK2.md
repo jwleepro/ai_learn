@@ -39,3 +39,11 @@ python llm_from_scratch/code/generate_bigram_nn.py --model llm_from_scratch/mode
 `llm_from_scratch/data/my_corpus.txt`를 만들고 (200~5000자),
 같은 방식으로 학습/생성을 해보세요.
 
+---
+
+## 자기 점검(자동)
+
+```powershell
+python -m unittest discover -s llm_from_scratch/tests -p "test_core_week2.py" -v
+```
+

@@ -65,6 +65,12 @@
 ## 자기 점검(자동)
 
 ```powershell
+python -m unittest discover -s llm_from_scratch/tests -p "test_core_week0.py" -v
+```
+
+전체 단위 테스트가 필요하면:
+
+```powershell
 python -m unittest discover -s llm_from_scratch/tests -p "test_*.py" -v
 ```
 

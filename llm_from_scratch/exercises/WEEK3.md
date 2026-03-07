@@ -63,3 +63,11 @@ python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/
 
 3개를 모두 생성 비교해보세요.
 
+---
+
+## 자기 점검(자동)
+
+```powershell
+python -m unittest discover -s llm_from_scratch/tests -p "test_core_week3.py" -v
+```
+

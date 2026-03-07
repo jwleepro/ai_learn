@@ -2,8 +2,15 @@
 
 목표: “진짜 LLM 구조”를 작은 규모로 학습/생성해보는 실습용입니다.
 
+이 파일을 처음 읽을 때 추천 순서:
+1. `MiniGPT.forward`
+2. `Block.forward`
+3. `CausalSelfAttention.forward`
+4. `MLP.forward`
+
 주의:
 - 이 파일은 torch가 없으면 import 단계에서 종료(SystemExit)합니다.
+- 처음 읽을 때는 PyTorch 문법(`transpose`, `view`, `register_buffer`)이 더 낯설 수 있습니다.
 """
 
 from __future__ import annotations
@@ -49,6 +56,8 @@ class CausalSelfAttention(nn.Module):
         self.attn_drop = nn.Dropout(cfg.dropout)
         self.resid_drop = nn.Dropout(cfg.dropout)
 
+        # mask는 "학습되는 파라미터"는 아니지만, 모델과 함께 저장되고
+        # CPU/GPU 이동도 같이 되게 하고 싶어서 buffer로 등록합니다.
         mask = torch.tril(torch.ones(cfg.block_size, cfg.block_size, dtype=torch.bool))
         self.register_buffer("mask", mask)
 
@@ -57,6 +66,8 @@ class CausalSelfAttention(nn.Module):
         qkv = self.qkv(x)  # (B, T, 3C)
         q, k, v = qkv.split(C, dim=2)
 
+        # 각 토큰 벡터를 head 수만큼 쪼개서,
+        # "배치, 헤드, 시간, head차원" 순서로 바꿉니다.
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, H, T, Dh)
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, H, T, Dh)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, H, T, Dh)
@@ -67,6 +78,8 @@ class CausalSelfAttention(nn.Module):
         att = self.attn_drop(att)
 
         y = att @ v  # (B, H, T, Dh)
+        # transpose 뒤에는 메모리 배치가 달라질 수 있으므로,
+        # contiguous()로 정리한 뒤 view로 다시 (B, T, C)로 합칩니다.
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # (B, T, C)
         y = self.resid_drop(self.proj(y))
         return y
@@ -125,6 +138,8 @@ class MiniGPT(nn.Module):
         if T > self.cfg.block_size:
             raise ValueError("Sequence too long for block_size")
 
+        # 토큰 임베딩 + 위치 임베딩을 더해 "지금 토큰이 무엇인지"와
+        # "몇 번째 위치인지"를 함께 넣습니다.
         pos = torch.arange(0, T, device=idx.device)
         x = self.tok_emb(idx) + self.pos_emb(pos)[None, :, :]
         x = self.drop(x)
@@ -135,5 +150,7 @@ class MiniGPT(nn.Module):
 
         loss = None
         if targets is not None:
+            # cross_entropy는 (N, V) logits와 (N,) 정답 id를 기대하므로
+            # 배치 B와 시간 T를 한 줄로 펴서 계산합니다.
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         return logits, loss

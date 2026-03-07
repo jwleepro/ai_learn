@@ -1,6 +1,7 @@
 # 레슨 인덱스
 
-> 용어/shape가 헷갈리면 [GLOSSARY](../GLOSSARY.md)를 먼저 훑어보세요.
+> Core 트랙은 [GLOSSARY_CORE](../GLOSSARY_CORE.md)를 먼저 보세요.
+> 파인튜닝/운영 용어는 나중에 [GLOSSARY](../GLOSSARY.md)로 넘어가면 됩니다.
 
 | # | 레슨 | 주차 | 과제 |
 |---|------|------|------|

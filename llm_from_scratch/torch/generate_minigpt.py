@@ -1,4 +1,7 @@
-"""학습된 MiniGPT 체크포인트로 텍스트를 생성하는 CLI(PyTorch)."""
+"""학습된 MiniGPT 체크포인트로 텍스트를 생성하는 CLI(PyTorch).
+
+이 파일은 "학습된 logits에서 다음 토큰을 어떻게 뽑는가"를 보는 용도입니다.
+"""
 
 from __future__ import annotations
 
@@ -83,6 +86,7 @@ def main() -> None:
         probs = F.softmax(logits_1d, dim=-1)
 
         if top_k is not None:
+            # 확률이 큰 상위 k개만 남깁니다.
             k = min(top_k, int(probs.numel()))
             v, ix = torch.topk(probs, k)
             mask = torch.zeros_like(probs)
@@ -90,6 +94,7 @@ def main() -> None:
             probs = mask / mask.sum()
 
         if top_p is not None and top_p < 1.0:
+            # 확률 큰 것부터 누적해서 top_p를 넘길 때까지만 남깁니다.
             sorted_probs, sorted_ix = torch.sort(probs, descending=True)
             cumsum = torch.cumsum(sorted_probs, dim=-1)
             cutoff = int((cumsum >= top_p).nonzero(as_tuple=False)[0].item())
@@ -102,6 +107,7 @@ def main() -> None:
 
     with torch.no_grad():
         for _ in range(int(args.length)):
+            # block_size보다 길어지면 최근 구간만 잘라 넣습니다.
             idx_cond = idx[:, -cfg.block_size :]
             logits, _ = model(idx_cond)
             next_id = sample_next(logits[0, -1])

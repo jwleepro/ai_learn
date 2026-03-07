@@ -1,6 +1,12 @@
 """MiniGPT 학습 CLI(PyTorch).
 
 char-level(글자 단위) 토큰화로 작은 GPT를 학습합니다.
+
+처음 읽을 때 추천 순서:
+1. `parse_args`
+2. `get_batch`
+3. `estimate_loss`
+4. 맨 아래 학습 루프
 """
 
 from __future__ import annotations
@@ -48,9 +54,10 @@ def main() -> None:
     if not text:
         raise ValueError("Input text is empty")
 
+    # 가장 단순한 글자 단위 vocab입니다.
     vocab = sorted(set(text))
     stoi = {ch: i for i, ch in enumerate(vocab)}
-    itos = {i: ch for ch, i in stoi.items()}
+    _ = {i: ch for ch, i in stoi.items()}
     data = torch.tensor([stoi[ch] for ch in text], dtype=torch.long)
 
     n = int(0.9 * len(data))
@@ -83,6 +90,8 @@ def main() -> None:
         seq_len = min(cfg.block_size, len(src) - 1)
         if seq_len <= 0:
             raise ValueError(f"{split} split is too short for language-model training.")
+        # 임의 시작점 여러 개를 뽑아,
+        # x는 현재 구간, y는 한 칸 오른쪽으로 민 정답 구간으로 만듭니다.
         ix = torch.randint(0, len(src) - seq_len, (int(args.batch),))
         x = torch.stack([src[int(i) : int(i) + seq_len] for i in ix])
         y = torch.stack([src[int(i) + 1 : int(i) + seq_len + 1] for i in ix])

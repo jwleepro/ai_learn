@@ -29,3 +29,11 @@ python llm_from_scratch/code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe
 1. merge가 늘수록 “토큰 길이”와 “토큰 개수”는 어떻게 바뀌나요?
 2. 너무 많은 merge는 어떤 문제를 만들까요? (힌트: 과적합/희귀 토큰)
 
+---
+
+## 자기 점검(자동)
+
+```powershell
+python -m unittest discover -s llm_from_scratch/tests -p "test_core_week7_bpe.py" -v
+```
+
