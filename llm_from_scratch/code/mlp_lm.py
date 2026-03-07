@@ -107,7 +107,9 @@ def loss_and_grads(params: MLPLMParams, X: np.ndarray, y: np.ndarray) -> tuple[f
 
     # 은닉층 기울기
     dh = dlogits @ params.W2.T
-    # tanh 활성화의 기울기: tanh 출력이 0에 가까우면 잘 통과, ±1에 가까우면 거의 차단
+    # tanh를 통과할 때 신호가 얼마나 살아남는지:
+    #   출력이 0 근처면 거의 그대로 통과, ±1 근처면 거의 차단
+    #   (이 공식의 유도는 고등 수학 범위이므로 "그런 규칙"으로 받아들여도 됩니다)
     dh_pre = dh * (1.0 - np.tanh(cache["h_pre"]) ** 2)
 
     h_in = cache["h_in"]

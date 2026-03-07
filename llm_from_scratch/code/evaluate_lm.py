@@ -65,6 +65,7 @@ def main() -> None:
             zero = int((p_next == 0.0).sum())
             print(f"loss=inf  ppl=inf  (zero_prob_pairs={zero}; try --smoothing 1)")
             return
+        # log: 확률이 1이면 0, 작아질수록 큰 양수 → "얼마나 못 맞혔나"를 재는 함수
         loss = float(-np.log(p_next).mean())
         print(f"loss={loss:.4f}  ppl={perplexity(loss):.2f}")
         return

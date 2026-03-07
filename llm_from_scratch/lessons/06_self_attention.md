@@ -29,7 +29,7 @@ Attention은 말 그대로:
 
 - 입력 임베딩: `X` (T x D)
 - `Q = XWq`, `K = XWk`, `V = XWv`
-- 점수: `scores = QK^T / sqrt(Dh)`
+- 점수: `scores = Q @ K^T / sqrt(Dh)`  ← `K^T`는 K의 행과 열을 뒤집은 것(전치). 코드에서는 `K.T`로 씀
 - 가중치: `weights = softmax(scores)`
 - 출력: `out = weights @ V` (가중합)
 
