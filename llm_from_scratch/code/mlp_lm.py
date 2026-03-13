@@ -91,11 +91,13 @@ def loss_and_grads(params: MLPLMParams, X: np.ndarray, y: np.ndarray) -> tuple[f
 
     logits, cache = forward(params, X)
     log_probs = log_softmax(logits, axis=1)
-    # loss: 정답 토큰의 확률이 높을수록 작아지는 값
+    # 마지막 층도 결국 "정답 토큰 하나를 맞히는 분류"이므로,
+    # 정답 토큰 확률이 높을수록 loss가 작아지는 cross-entropy를 쓴다.
     loss = float(-log_probs[np.arange(len(y)), y].mean())
 
     # --- 역전파: 출력층 → 은닉층 → 임베딩 순으로 기울기를 전파 ---
-    # 출력층 기울기 (bigram_nn과 동일한 softmax 성질 활용)
+    # 출력층은 bigram_nn과 똑같이 vocab 분류 문제라서,
+    # logits에 대한 신호도 probs - one_hot(y) 형태가 된다.
     probs = np.exp(log_probs)
     dlogits = probs
     dlogits[np.arange(len(y)), y] -= 1.0

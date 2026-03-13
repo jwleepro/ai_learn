@@ -56,7 +56,8 @@ class TransformerParams:
 
 
 def layer_norm(x: np.ndarray, g: np.ndarray, b: np.ndarray, *, eps: float = 1e-5) -> np.ndarray:
-    # 벡터를 "평균 0, 퍼진 정도 1" 근처로 맞추는 정규화입니다.
+    # 각 토큰 벡터의 스케일이 레이어를 지날수록 들쭉날쭉해지면 다음 층이 다루기 어려워진다.
+    # 그래서 평균/분산을 맞춰 "비슷한 스케일"로 정리한 뒤, 필요한 표현력은 g/b로 다시 준다.
     # x: (..., D)
     mean = x.mean(axis=-1, keepdims=True)                         # 평균
     var = ((x - mean) ** 2).mean(axis=-1, keepdims=True)          # 분산(값들이 평균에서 얼마나 퍼졌는지)
@@ -130,7 +131,8 @@ def mha(x: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, Wo: np.nd
     K = (x @ Wk).reshape(T, n_heads, Dh).transpose(1, 0, 2)  # (H, T, Dh)
     V = (x @ Wv).reshape(T, n_heads, Dh).transpose(1, 0, 2)  # (H, T, Dh)
 
-    # 내적으로 관련도 점수를 매기고, sqrt(Dh)로 나눠서 점수가 과하게 커지는 걸 방지
+    # head 차원이 커질수록 내적값이 커져 softmax가 지나치게 뾰족해질 수 있다.
+    # sqrt(Dh)로 나누는 이유는 그 스케일 폭주를 줄여 비교가 과격해지지 않게 만들기 위해서다.
     scores = (Q @ K.transpose(0, 2, 1)) / np.sqrt(float(Dh))  # (H, T, T)
     if causal:
         mask = np.triu(np.ones((T, T), dtype=bool), k=1)

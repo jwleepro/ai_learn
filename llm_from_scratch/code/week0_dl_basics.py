@@ -86,7 +86,12 @@ def fit_line_gd(
         loss = float(np.mean(err**2))
         losses.append(loss)
 
-        # MSE를 w로 편미분한 결과 (수학 생략). 중학교 수학으로 이해할 수 없음. 외우는게 나음
+        # 여기서 x, y는 이미 주어진 데이터라 고정이고, 학습 중에 바뀌는 건 w, b뿐이다.
+        # 그래서 현재 손실은 사실상 MSE(w, b)로 볼 수 있다.
+        # err = (w * x) + b - y, MSE = mean(err**2) = mean(((w * x) + b - y)**2).
+        # 이를 w로 미분하면 바깥 제곱에서 2 * err가, 안쪽 (w * x) + b - y 에서는 x가 남는다.
+        # 그래서 한 샘플 기준으로는 2 * err * x, 여러 샘플 평균을 내면 아래 dw 식이 된다.
+        # b는 안쪽 식을 미분하면 1만 남으므로, 여러 샘플 평균을 내면 아래 db 식이 된다.
         dw = float((2.0 / n) * np.sum(err * x))
         db = float((2.0 / n) * np.sum(err))
         w -= lr * dw

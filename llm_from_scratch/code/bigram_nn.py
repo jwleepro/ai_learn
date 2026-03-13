@@ -52,13 +52,14 @@ def loss_and_grad_W(W: np.ndarray, prev_ids: np.ndarray, next_ids: np.ndarray) -
 
     logits = W[prev_ids]  # (B, V)
     log_probs = log_softmax(logits, axis=1)
-    # loss = 정답 토큰의 확률이 높을수록 작아지는 값 (cross-entropy)
+    # cross-entropy는 "정답 토큰에 높은 확률을 줄수록 더 좋은 모델"이 되게 만든다.
     loss = float(-log_probs[np.arange(len(next_ids)), next_ids].mean())
 
     # --- 기울기(gradient) 계산 ---
-    # "정답 확률을 올리는 방향"을 구합니다.
-    # 공식은 softmax의 성질에서 나오는데, 결과가 매우 단순합니다:
-    #   기울기 = 모델이 예측한 확률 - 정답(정답 위치만 1, 나머지 0)
+    # 여기서 바뀌는 것은 W가 만든 logits뿐이므로, 먼저 "logits를 어느 쪽으로 밀어야
+    # 정답 확률이 올라가는지"를 구한다.
+    # cross-entropy + softmax 조합에서는 그 신호가 probs - one_hot(target)으로 정리된다.
+    # 즉 정답 위치는 더 올리고, 정답이 아닌 위치는 과하게 준 확률만큼 내리라는 뜻이다.
     probs = np.exp(log_probs)  # (B, V)
     grad_logits = probs
     grad_logits[np.arange(len(next_ids)), next_ids] -= 1.0

@@ -50,7 +50,8 @@ def _apply_top_p(probs: np.ndarray, p: float) -> np.ndarray:
     order = np.argsort(probs)[::-1]
     sorted_probs = probs[order]
     cumsum = np.cumsum(sorted_probs)  # 누적합: 확률을 큰 것부터 차례로 더한 값
-    # 누적합이 p 이상이 되는 첫 위치를 찾는다 (= 확률 높은 후보만 남기기)
+    # top-p(nucleus)는 "확률 질량을 p만큼 설명하는 최소 후보 집합만 남기기"다.
+    # 그래서 누적합이 p를 처음 넘는 지점까지만 살리고, 나머지 꼬리 확률은 버린 뒤 다시 정규화한다.
     cutoff = int(np.searchsorted(cumsum, p, side="left"))
     keep_ids = order[: cutoff + 1]
     out = np.zeros_like(probs)
