@@ -86,11 +86,8 @@ def fit_line_gd(
         loss = float(np.mean(err**2))
         losses.append(loss)
 
-        # w를 조금 바꾸면 loss가 얼마나 변하는지 (기울기)
-        # → 오차(err)와 입력(x)을 곱해서 평균낸 것의 2배
+        # MSE를 w로 편미분한 결과 (수학 생략). 중학교 수학으로 이해할 수 없음. 외우는게 나음
         dw = float((2.0 / n) * np.sum(err * x))
-        # b를 조금 바꾸면 loss가 얼마나 변하는지 (기울기)
-        # → 오차(err)를 평균낸 것의 2배
         db = float((2.0 / n) * np.sum(err))
         w -= lr * dw
         b -= lr * db
