@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from dataset_lm import make_context_dataset
 from mlp_lm import MLPLMConfig, train_mlp_lm
 from model_io import MLPLMCheckpoint, save_mlp_lm

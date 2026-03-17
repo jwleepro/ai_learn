@@ -80,7 +80,7 @@
 학습은 아니지만, “블록이 어떻게 붙는지”를 실행으로 확인합니다.
 
 ```powershell
-python llm_from_scratch/code/demo_transformer_forward.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 64 --d_model 64 --heads 4 --layers 2
+python llm_from_scratch/code/week5/demo_transformer_forward.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 64 --d_model 64 --heads 4 --layers 2
 ```
 
 출력은 랜덤 예측이지만, 다음을 확인하면 목표 달성:
@@ -88,7 +88,7 @@ python llm_from_scratch/code/demo_transformer_forward.py --input llm_from_scratc
 - 입력 토큰 수(T)만큼 logits이 나온다
 - 마지막 위치 logits으로 “다음 토큰 분포”를 만든다
 
-> 구현 참고: `llm_from_scratch/code/transformer_numpy.py`
+> 구현 참고: [`transformer_numpy.py`](../code/week5/transformer_numpy.py)
 
 ---
 

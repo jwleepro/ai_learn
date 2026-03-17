@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from attention_numpy import self_attention
 from tokenizer_char import CharTokenizer
 

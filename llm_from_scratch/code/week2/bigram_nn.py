@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from softmax import log_softmax, softmax
 
 

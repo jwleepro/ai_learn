@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from bigram_counts import build_bigram_counts, counts_to_probs
 from sampling import SamplingConfig, sample_from_probs
 from tokenizer_char import CharTokenizer

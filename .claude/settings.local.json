@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"^import\\\\|^from\" llm_from_scratch/code/*.py)",
+      "Bash(git mv:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

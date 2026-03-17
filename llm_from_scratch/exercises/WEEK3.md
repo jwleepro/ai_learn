@@ -8,8 +8,9 @@
 
 ## 0) 학습 실행(기본)
 
+> 소스: [`train_mlp_lm.py`](../code/week3/train_mlp_lm.py)
 ```powershell
-python llm_from_scratch/code/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
+python llm_from_scratch/code/week3/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
 ```
 
 저장:
@@ -18,8 +19,9 @@ python llm_from_scratch/code/train_mlp_lm.py --input llm_from_scratch/data/tiny_
 
 생성:
 
+> 소스: [`generate_mlp_lm.py`](../code/week3/generate_mlp_lm.py)
 ```powershell
-python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
+python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
 ```
 
 ---

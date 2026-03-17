@@ -6,6 +6,7 @@ import argparse
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from mlp_lm import next_token_probs
 from model_io import load_mlp_lm
 from sampling import SamplingConfig, sample_from_probs

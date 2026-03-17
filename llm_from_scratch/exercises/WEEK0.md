@@ -12,7 +12,7 @@
 
 - `x=3`, `w=10`, `b=20` → `y=50`
 
-힌트: `llm_from_scratch/code/week0_dl_basics.py`
+힌트: [`week0_dl_basics.py`](../code/week0/week0_dl_basics.py)
 
 ---
 
@@ -52,7 +52,7 @@
 - loss(MSE)가 내려가는지 출력
 - 마지막에 `w≈2`, `b≈1`에 가까워지는지 확인
 
-힌트: `python llm_from_scratch/code/demo_week0_dl_basics.py`를 먼저 실행해보고, 그 다음 직접 바꿔보세요.
+힌트: `python llm_from_scratch/code/week0/demo_week0_dl_basics.py`를 먼저 실행해보고, 그 다음 직접 바꿔보세요.
 
 ---
 

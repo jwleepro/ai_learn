@@ -8,8 +8,9 @@
 
 ## 0) 학습 실행
 
+> 소스: [`train_bigram_nn.py`](../code/week2/train_bigram_nn.py)
 ```powershell
-python llm_from_scratch/code/train_bigram_nn.py --input llm_from_scratch/data/tiny_corpus_ko.txt --epochs 40 --lr 2.0 --batch 2048
+python llm_from_scratch/code/week2/train_bigram_nn.py --input llm_from_scratch/data/tiny_corpus_ko.txt --epochs 40 --lr 2.0 --batch 2048
 ```
 
 학습이 끝나면 기본 경로로 저장됩니다:
@@ -20,8 +21,9 @@ python llm_from_scratch/code/train_bigram_nn.py --input llm_from_scratch/data/ti
 
 ## 1) 생성 실행
 
+> 소스: [`generate_bigram_nn.py`](../code/week2/generate_bigram_nn.py)
 ```powershell
-python llm_from_scratch/code/generate_bigram_nn.py --model llm_from_scratch/models/bigram_nn.npz --length 300 --seed 0 --temperature 1.0
+python llm_from_scratch/code/week2/generate_bigram_nn.py --model llm_from_scratch/models/bigram_nn.npz --length 300 --seed 0 --temperature 1.0
 ```
 
 ---

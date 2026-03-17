@@ -24,7 +24,7 @@
 ## Quickstart (Week 0)
 
 ```powershell
-python llm_from_scratch/code/demo_week0_dl_basics.py
+python llm_from_scratch/code/week0/demo_week0_dl_basics.py
 ```
 
 ## Quickstart (Week 1)
@@ -32,13 +32,13 @@ python llm_from_scratch/code/demo_week0_dl_basics.py
 빅램 카운트 모델로 텍스트 생성:
 
 ```powershell
-python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 0
+python llm_from_scratch/code/week1/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 0
 ```
 
 특정 글자 뒤 전이확률 보기(예: "다" = `U+B2E4`):
 
 ```powershell
-python llm_from_scratch/code/inspect_bigrams.py --input llm_from_scratch/data/tiny_corpus_ko.txt --char_u 0xB2E4 --top 10
+python llm_from_scratch/code/week1/inspect_bigrams.py --input llm_from_scratch/data/tiny_corpus_ko.txt --char_u 0xB2E4 --top 10
 ```
 
 빠른 자기점검(학습자용 주차 테스트):
@@ -60,23 +60,23 @@ python -m unittest discover -s llm_from_scratch/tests -p "test_*.py" -v
 신경망 빅램 학습/생성:
 
 ```powershell
-python llm_from_scratch/code/train_bigram_nn.py --input llm_from_scratch/data/tiny_corpus_ko.txt
-python llm_from_scratch/code/generate_bigram_nn.py --model llm_from_scratch/models/bigram_nn.npz --length 300 --seed 0 --temperature 1.0 --top_p 0.9
+python llm_from_scratch/code/week2/train_bigram_nn.py --input llm_from_scratch/data/tiny_corpus_ko.txt
+python llm_from_scratch/code/week2/generate_bigram_nn.py --model llm_from_scratch/models/bigram_nn.npz --length 300 --seed 0 --temperature 1.0 --top_p 0.9
 ```
 
 MLP LM 학습/생성:
 
 ```powershell
-python llm_from_scratch/code/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128
-python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0 --top_k 40
+python llm_from_scratch/code/week3/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128
+python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0 --top_k 40
 ```
 
 평가(loss/ppl):
 
 ```powershell
-python llm_from_scratch/code/evaluate_lm.py counts_bigram --train llm_from_scratch/data/tiny_corpus_ko.txt --eval llm_from_scratch/data/tiny_corpus_ko.txt --smoothing 1
-python llm_from_scratch/code/evaluate_lm.py bigram_nn --model llm_from_scratch/models/bigram_nn.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
-python llm_from_scratch/code/evaluate_lm.py mlp_lm --model llm_from_scratch/models/mlp_lm.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
+python llm_from_scratch/code/week6/evaluate_lm.py counts_bigram --train llm_from_scratch/data/tiny_corpus_ko.txt --eval llm_from_scratch/data/tiny_corpus_ko.txt --smoothing 1
+python llm_from_scratch/code/week6/evaluate_lm.py bigram_nn --model llm_from_scratch/models/bigram_nn.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
+python llm_from_scratch/code/week6/evaluate_lm.py mlp_lm --model llm_from_scratch/models/mlp_lm.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
 ```
 
 ## Week 4~7 (데모/도구)
@@ -84,20 +84,20 @@ python llm_from_scratch/code/evaluate_lm.py mlp_lm --model llm_from_scratch/mode
 self-attention 데모:
 
 ```powershell
-python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
+python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
 ```
 
 Transformer forward 데모(랜덤 가중치, shape 확인용):
 
 ```powershell
-python llm_from_scratch/code/demo_transformer_forward.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 64 --d_model 64 --heads 4 --layers 2
+python llm_from_scratch/code/week5/demo_transformer_forward.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 64 --d_model 64 --heads 4 --layers 2
 ```
 
 BPE 토크나이저 학습/데모:
 
 ```powershell
-python llm_from_scratch/code/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 200
-python llm_from_scratch/code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_tokenizer.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
+python llm_from_scratch/code/week7/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 200
+python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_tokenizer.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
 ```
 
 ## (선택) MiniGPT 학습(PyTorch)

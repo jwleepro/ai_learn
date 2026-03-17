@@ -65,7 +65,7 @@
 - 은닉 `h`: `(B, H)`
 - 출력 logits: `(B, V)`
 
-> 구현 참고: `llm_from_scratch/code/mlp_lm.py`
+> 구현 참고: [`mlp_lm.py`](../code/week3/mlp_lm.py)
 > 코드에는 “역전파(backpropagation)”라는 기울기 계산 부분이 있습니다.
 > 이것은 “loss를 줄이려면 각 파라미터를 어느 방향으로 바꿔야 하는지”를
 > 출력→은닉→임베딩 순서로 거꾸로 추적하는 과정입니다.
@@ -92,13 +92,13 @@
 학습:
 
 ```powershell
-python llm_from_scratch/code/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
+python llm_from_scratch/code/week3/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
 ```
 
 생성:
 
 ```powershell
-python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
+python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
 ```
 
 ---

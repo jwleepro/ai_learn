@@ -20,9 +20,11 @@
 
 아래 두 명령을 실행하고, 생성 텍스트의 차이를 관찰하세요.
 
+> 소스: [`generate_bigram.py`](../code/week1/generate_bigram.py)
+> 소스: [`generate_bigram.py`](../code/week1/generate_bigram.py)
 ```powershell
-python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 0 --smoothing 0
-python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 0 --smoothing 1
+python llm_from_scratch/code/week1/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 0 --smoothing 0
+python llm_from_scratch/code/week1/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 0 --smoothing 1
 ```
 
 질문:
@@ -36,10 +38,13 @@ python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/ti
 
 아래를 각각 실행하고, 결과를 비교하세요.
 
+> 소스: [`generate_bigram.py`](../code/week1/generate_bigram.py)
+> 소스: [`generate_bigram.py`](../code/week1/generate_bigram.py)
+> 소스: [`generate_bigram.py`](../code/week1/generate_bigram.py)
 ```powershell
-python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 0.7
-python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 1.0
-python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 1.3
+python llm_from_scratch/code/week1/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 0.7
+python llm_from_scratch/code/week1/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 1.0
+python llm_from_scratch/code/week1/generate_bigram.py --input llm_from_scratch/data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 1.3
 ```
 
 질문:
@@ -60,8 +65,9 @@ python llm_from_scratch/code/generate_bigram.py --input llm_from_scratch/data/ti
 
 특정 글자 뒤에 어떤 글자가 잘 나오는지 확인해보세요:
 
+> 소스: [`inspect_bigrams.py`](../code/week1/inspect_bigrams.py)
 ```powershell
-python llm_from_scratch/code/inspect_bigrams.py --input llm_from_scratch/data/tiny_corpus_ko.txt --char_u 0xB2E4 --top 10
+python llm_from_scratch/code/week1/inspect_bigrams.py --input llm_from_scratch/data/tiny_corpus_ko.txt --char_u 0xB2E4 --top 10
 ```
 
 질문:

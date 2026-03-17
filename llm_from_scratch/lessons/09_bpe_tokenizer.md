@@ -42,16 +42,16 @@
 학습(merge 200번):
 
 ```powershell
-python llm_from_scratch/code/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 200
+python llm_from_scratch/code/week7/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 200
 ```
 
 데모(encode/decode):
 
 ```powershell
-python llm_from_scratch/code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_tokenizer.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
+python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_tokenizer.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
 ```
 
-> 구현 참고: `llm_from_scratch/code/bpe_tokenizer.py`
+> 구현 참고: [`bpe_tokenizer.py`](../code/week7/bpe_tokenizer.py)
 
 ---
 

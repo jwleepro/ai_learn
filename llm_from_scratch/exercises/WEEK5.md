@@ -8,8 +8,9 @@
 
 ## 과제 1) forward 데모 실행
 
+> 소스: [`demo_transformer_forward.py`](../code/week5/demo_transformer_forward.py)
 ```powershell
-python llm_from_scratch/code/demo_transformer_forward.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 48 --d_model 64 --heads 4 --layers 2 --top 10
+python llm_from_scratch/code/week5/demo_transformer_forward.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 48 --d_model 64 --heads 4 --layers 2 --top 10
 ```
 
 질문:
@@ -27,6 +28,7 @@ Week4의 `demo_self_attention.py`에서:
 - `--tokens`를 조금 늘리고
 - `--matrix` 옵션으로 전체 weight 행렬을 출력해보세요.
 
+> 소스: [`demo_self_attention.py`](../code/week4/demo_self_attention.py)
 ```powershell
-python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 16 --pos 15 --top 6 --matrix
+python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 16 --pos 15 --top 6 --matrix
 ```

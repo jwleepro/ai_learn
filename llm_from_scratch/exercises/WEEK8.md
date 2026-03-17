@@ -47,8 +47,9 @@
 
 아래를 실행해 JSONL이 깨져 있지 않은지 확인하세요.
 
+> 소스: [`validate_sft_jsonl.py`](../code/week8/validate_sft_jsonl.py)
 ```powershell
-python llm_from_scratch/code/validate_sft_jsonl.py --input llm_from_scratch/data/sft_toy.jsonl
+python llm_from_scratch/code/week8/validate_sft_jsonl.py --input llm_from_scratch/data/sft_toy.jsonl
 ```
 
 질문:

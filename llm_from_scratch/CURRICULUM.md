@@ -41,7 +41,7 @@
 ### Week 0 — 준비/감 잡기
 - LLM이 하는 일(다음 토큰 예측), 데이터/토큰/모델/학습의 큰 그림
 - 딥러닝 기초(코드로): 퍼셉트론(`y=w*x+b`), 행렬곱(`W@x+b`), 경사하강법, ReLU
-- 실습: `demo_week0_dl_basics.py` 실행 + “햄버거 가게 행렬곱” 과제
+- 실습: [`demo_week0_dl_basics.py`](code/week0/demo_week0_dl_basics.py) 실행 + “햄버거 가게 행렬곱” 과제
 
 > 📂 레슨: [00_setup](lessons/00_setup.md), [00_dl_basics](lessons/00_dl_basics.md) | 과제: [WEEK0](exercises/WEEK0.md)
 

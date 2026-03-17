@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from bigram_nn import BigramNNConfig, train_bigram_nn
 from model_io import BigramNNCheckpoint, save_bigram_nn
 from tokenizer_char import CharTokenizer

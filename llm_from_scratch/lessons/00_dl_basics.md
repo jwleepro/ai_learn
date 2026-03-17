@@ -35,7 +35,7 @@ LLM도 결국 이런 계산이 엄청 많이 쌓여 있습니다.
 - 편향 `b` (2개)
 - 출력 `y = W @ x + b`
 
-실습 코드는 `llm_from_scratch/code/week0_dl_basics.py`에 있습니다.
+실습 코드는 [`week0_dl_basics.py`](../code/week0/week0_dl_basics.py)에 있습니다.
 
 ---
 
@@ -118,7 +118,7 @@ b -= lr * db
 실습 스크립트:
 
 ```powershell
-python llm_from_scratch/code/demo_week0_dl_basics.py
+python llm_from_scratch/code/week0/demo_week0_dl_basics.py
 ```
 
 ---

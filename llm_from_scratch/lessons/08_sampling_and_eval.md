@@ -31,7 +31,7 @@
 - 장점: 상황에 따라 후보 개수가 자동으로 조절됨
 - 실전에서 자주 씀
 
-> 구현 참고: `llm_from_scratch/code/sampling.py`
+> 구현 참고: [`sampling.py`](../code/common/sampling.py)
 
 ---
 
@@ -42,7 +42,7 @@
 - loss가 낮을수록 좋고
 - perplexity도 낮을수록 좋습니다.
 
-> 구현 참고: `llm_from_scratch/code/evaluate_lm.py`
+> 구현 참고: [`evaluate_lm.py`](../code/week6/evaluate_lm.py)
 
 ---
 
@@ -51,16 +51,16 @@
 ### 생성 옵션 비교(MLP LM)
 
 ```powershell
-python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0 --top_k 40
-python llm_from_scratch/code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0 --top_p 0.9
+python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0 --top_k 40
+python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0 --top_p 0.9
 ```
 
 ### 평가(같은 eval 텍스트로 비교)
 
 ```powershell
-python llm_from_scratch/code/evaluate_lm.py counts_bigram --train llm_from_scratch/data/tiny_corpus_ko.txt --eval llm_from_scratch/data/tiny_corpus_ko.txt --smoothing 1
-python llm_from_scratch/code/evaluate_lm.py bigram_nn --model llm_from_scratch/models/bigram_nn.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
-python llm_from_scratch/code/evaluate_lm.py mlp_lm --model llm_from_scratch/models/mlp_lm.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
+python llm_from_scratch/code/week6/evaluate_lm.py counts_bigram --train llm_from_scratch/data/tiny_corpus_ko.txt --eval llm_from_scratch/data/tiny_corpus_ko.txt --smoothing 1
+python llm_from_scratch/code/week6/evaluate_lm.py bigram_nn --model llm_from_scratch/models/bigram_nn.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
+python llm_from_scratch/code/week6/evaluate_lm.py mlp_lm --model llm_from_scratch/models/mlp_lm.npz --eval llm_from_scratch/data/tiny_corpus_ko.txt
 ```
 
 ---

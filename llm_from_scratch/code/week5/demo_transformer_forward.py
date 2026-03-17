@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+import _path_setup  # noqa: F401  (code/ 하위 폴더 sys.path 등록)
 from softmax import softmax
 from tokenizer_char import CharTokenizer
 from transformer_numpy import TransformerConfig, forward, init_params

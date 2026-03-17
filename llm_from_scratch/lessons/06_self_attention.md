@@ -74,7 +74,7 @@ attention을 기호 없이 말하면 아래 4단계입니다.
 - `weights`: `(T, T)` (각 행의 합이 1; “어디를 얼마나 볼지”)
 - `out`: `(T, Dh)` (V를 weights로 섞은 결과)
 
-> 이 프로젝트의 구현 참고: `llm_from_scratch/code/attention_numpy.py`
+> 이 프로젝트의 구현 참고: [`attention_numpy.py`](../code/week4/attention_numpy.py)
 
 ---
 
@@ -92,13 +92,13 @@ attention을 기호 없이 말하면 아래 4단계입니다.
 아래는 “학습”이 아니라, **랜덤 가중치**로 attention 가중치의 shape/마스크 동작을 눈으로 보는 데모입니다.
 
 ```powershell
-python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 20 --pos 19 --top 8
+python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 20 --pos 19 --top 8
 ```
 
 causal을 끄면(반칙 모드) 무엇이 달라지는지도 비교해보세요:
 
 ```powershell
-python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 20 --pos 19 --top 8 --no_causal
+python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 20 --pos 19 --top 8 --no_causal
 ```
 
 ---

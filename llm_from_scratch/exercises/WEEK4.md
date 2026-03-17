@@ -10,9 +10,11 @@
 
 아래 두 명령을 실행해서 비교하세요.
 
+> 소스: [`demo_self_attention.py`](../code/week4/demo_self_attention.py)
+> 소스: [`demo_self_attention.py`](../code/week4/demo_self_attention.py)
 ```powershell
-python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
-python llm_from_scratch/code/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8 --no_causal
+python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
+python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8 --no_causal
 ```
 
 질문:

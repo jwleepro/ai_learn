@@ -3,6 +3,9 @@
 import sys
 from pathlib import Path
 
-_CODE_DIR = str(Path(__file__).resolve().parent.parent / "code")
-if _CODE_DIR not in sys.path:
-    sys.path.insert(0, _CODE_DIR)
+_CODE_DIR = Path(__file__).resolve().parent.parent / "code"
+for _sub in sorted(_CODE_DIR.iterdir()):
+    if _sub.is_dir() and not _sub.name.startswith("_"):
+        p = str(_sub)
+        if p not in sys.path:
+            sys.path.insert(0, p)
