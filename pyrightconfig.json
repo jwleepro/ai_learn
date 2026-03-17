@@ -1,0 +1,15 @@
+{
+  "extraPaths": [
+    "llm_from_scratch/code/common",
+    "llm_from_scratch/code/week0",
+    "llm_from_scratch/code/week1",
+    "llm_from_scratch/code/week2",
+    "llm_from_scratch/code/week3",
+    "llm_from_scratch/code/week4",
+    "llm_from_scratch/code/week5",
+    "llm_from_scratch/code/week6",
+    "llm_from_scratch/code/week7",
+    "llm_from_scratch/code/week8",
+    "llm_from_scratch/tests"
+  ]
+}
