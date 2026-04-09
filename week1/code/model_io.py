@@ -22,6 +22,14 @@ ModelType = Literal["bigram_nn", "mlp_lm"]
 
 @dataclass(frozen=True)
 class BigramNNCheckpoint:
+    """
+    신경망 빅램 모델의 체크포인트 (저장/로드 단위)
+
+    어떤 정보를 저장할까?
+    - tokenizer: 학습 시 사용한 문자 토크나이저 (생성할 때 필요)
+    - W: 학습된 가중치 행렬 (V x V)
+    - default_start_id: 생성 시 시작 토큰 (보통 훈련 텍스트의 첫 문자)
+    """
     tokenizer: CharTokenizer
     W: np.ndarray
     default_start_id: int = 0
