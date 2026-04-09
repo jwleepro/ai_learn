@@ -39,33 +39,54 @@ def label(vocab: tuple[str, ...], token_id: int) -> str:
 
 
 def main() -> None:
+    """메인 데모 로직.
+
+    목표:
+    1. 텍스트를 토큰화하고 Transformer forward 실행
+    2. 마지막 토큰 위치의 logits를 softmax로 확률분포로 변환
+    3. 상위 N개 예측 토큰 출력
+
+    중요한 점:
+    - 가중치가 무작위 초기화되므로 예측이 의미 있지 않음 (학습 전)
+    - 이 데모의 목표는 아키텍처의 정상 작동과 shape 흐름 확인
+    - 실제 사용은 훈련된 모델에서 수행
+    """
     args = parse_args()
+
+    # 1. 텍스트 로드 및 토큰화
     text = Path(args.input).read_text(encoding="utf-8")
     if not text:
         raise ValueError("Input text is empty")
 
     tok = CharTokenizer.from_text(text)
     ids = np.array(tok.encode(text), dtype=np.int64)
-    T = min(int(args.tokens), len(ids))
+    T = min(int(args.tokens), len(ids))  # 처음 T개 토큰만 사용
     ids = ids[:T]
 
+    # 2. Transformer 설정 및 초기화
     cfg = TransformerConfig(
         vocab_size=tok.vocab_size,
         max_seq_len=T,
-        d_model=int(args.d_model),
-        n_heads=int(args.heads),
-        d_ff=int(args.d_model) * 4,
-        n_layers=int(args.layers),
+        d_model=int(args.d_model),           # 모델 차원
+        n_heads=int(args.heads),              # 멀티헤드 어텐션 헤드 수
+        d_ff=int(args.d_model) * 4,           # FFN 중간 차원 (보통 4배)
+        n_layers=int(args.layers),            # Transformer 블록 개수
         seed=int(args.seed),
     )
     params = init_params(cfg)
 
+    # 3. Forward pass
     logits, _ = forward(params, ids, n_heads=cfg.n_heads, causal=True)
-    last_logits = logits[-1]
-    probs = softmax(last_logits, axis=0)
+    # logits: (T, V) - 각 위치의 logit 점수
 
+    # 4. 마지막 위치의 예측 분석
+    last_logits = logits[-1]  # 마지막 토큰 위치의 logits
+    probs = softmax(last_logits, axis=0)  # 확률분포로 변환
+
+    # 5. 상위 N개 예측 토큰
     top_n = min(int(args.top), tok.vocab_size)
-    top_ids = np.argsort(probs)[-top_n:][::-1]
+    top_ids = np.argsort(probs)[-top_n:][::-1]  # 내림차순 정렬
+
     print(f"T={T}  d_model={cfg.d_model}  heads={cfg.n_heads}  layers={cfg.n_layers}")
     print("Top predictions (random weights; just shape demo):")
     for token_id in top_ids:
