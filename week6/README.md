@@ -34,8 +34,8 @@ python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --se
 > 소스: [`evaluate_lm.py`](code/evaluate_lm.py)
 ```powershell
 python code/evaluate_lm.py counts_bigram --train data/tiny_corpus_ko.txt --eval data/tiny_corpus_ko.txt --smoothing 1
-python code/evaluate_lm.py bigram_nn --model llm_from_scratch/models/bigram_nn.npz --eval data/tiny_corpus_ko.txt
-python code/evaluate_lm.py mlp_lm --model llm_from_scratch/models/mlp_lm.npz --eval data/tiny_corpus_ko.txt
+python code/evaluate_lm.py bigram_nn --model models/bigram_nn.npz --eval data/tiny_corpus_ko.txt
+python code/evaluate_lm.py mlp_lm --model models/mlp_lm.npz --eval data/tiny_corpus_ko.txt
 ```
 
 질문:

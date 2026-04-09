@@ -23,7 +23,13 @@ python code/demo_transformer_forward.py --input data/tiny_corpus_ko.txt --tokens
 
 ## 과제 2) Attention weights 출력(선택)
 
-Week4의 `demo_self_attention.py`에서:
+> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
+
+아래 명령으로 attention weights를 시각화해보세요:
+
+```powershell
+python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
+```
 
 - `--tokens`를 조금 늘리고
 - `--matrix` 옵션으로 전체 weight 행렬을 출력해보세요.
