@@ -16,31 +16,83 @@ import numpy as np
 
 
 def simple_neuron(x: float, w: float, b: float) -> float:
+    """
+    뉴런의 기본 연산: y = w*x + b
+
+    Args:
+        x: 입력값
+        w: 가중치(weight) - x의 영향력을 조절
+        b: 편향(bias) - 기본값 조절
+
+    Returns:
+        선형 변환의 결과값
+
+    예: x=3, w=10, b=20 -> y = 10*3 + 20 = 50
+    """
     return (w * x) + b
 
 
 def burger_finance(sales: np.ndarray) -> np.ndarray:
     """
-    sales: [burgers, fries, cola]
-    returns: [revenue, profit]
+    행렬곱을 이용한 다중 선형 변환: y = W@x + b
+
+    햄버거 가게 예제:
+    - 버거, 감자튀김, 콜라 3가지 상품의 판매량이 주어지면
+    - 총 수익과 이윤을 계산한다
+
+    Args:
+        sales: shape (3,) - [버거수, 감자튀김수, 콜라수]
+
+    Returns:
+        shape (2,) - [총수익, 이윤]
+
+    수학:
+    - W는 2x3 행렬: 각 행이 계산 규칙(수익단가, 이윤마진)
+    - sales는 3x1 벡터: 판매량
+    - W @ sales = (2x3) @ (3x1) = (2x1) - 결과는 2개 값
+    - b는 각 항목에 더할 상수항
+
+    예:
+    - 버거 단가: 5000원, 감자튀김: 2000원, 콜라: 1500원
+    - 버거 이윤: 2000원, 감자튀김: 1000원, 콜라: 500원
+    - sales = [100, 80, 120]이면:
+      - 총수익 = 5000*100 + 2000*80 + 1500*120 + 10000 = 1,108,000원
+      - 이윤 = 2000*100 + 1000*80 + 500*120 - 50000 = 290,000원
     """
     sales = np.asarray(sales, dtype=np.float64)
     if sales.shape != (3,):
         raise ValueError("sales must have shape (3,)")
 
-    # W rows: [revenue unit prices], [profit margins]
+    # W: 2x3 행렬 - 각 행이 한 가지 계산(수익 또는 이윤)
+    # 행렬곱 W @ sales는 각 행마다 가중합(weighted sum)을 계산한다
     W = np.array(
         [
-            [5000.0, 2000.0, 1500.0],
-            [2000.0, 1000.0, 500.0],
+            [5000.0, 2000.0, 1500.0],  # 각 상품의 단가
+            [2000.0, 1000.0, 500.0],   # 각 상품의 이윤 마진
         ],
         dtype=np.float64,
     )
-    b = np.array([10000.0, -50000.0], dtype=np.float64)
+    b = np.array([10000.0, -50000.0], dtype=np.float64)  # 각 항목의 기본값
     return (W @ sales) + b
 
 
 def relu(x: np.ndarray) -> np.ndarray:
+    """
+    ReLU (Rectified Linear Unit): 비선형 활성화 함수
+
+    정의: ReLU(x) = max(0, x)
+    - 양수는 그대로, 음수는 0으로 변환
+    - 신경망에 비선형성(nonlinearity)을 추가한다
+    - 선형 변환만으로는 복잡한 패턴을 배울 수 없으므로 필수
+
+    특징:
+    - 계산이 간단하고 빠름
+    - 미분도 간단: x > 0이면 1, x < 0이면 0 (경사하강법 용이)
+    - 너무 많은 음수 입력이 있으면 뉴런이 "죽을" 수 있음 (Dying ReLU)
+
+    예:
+    - relu([-2, -1, 0, 1, 2]) -> [0, 0, 0, 1, 2]
+    """
     x = np.asarray(x, dtype=np.float64)
     return np.maximum(x, 0.0)
 
@@ -62,7 +114,34 @@ def fit_line_gd(
     b0: float = 0.0,
 ) -> LinearGDResult:
     """
-    Fit y ~= w*x + b by gradient descent on MSE.
+    경사하강법(Gradient Descent)으로 직선 y = w*x + b를 데이터에 맞춘다
+
+    핵심 원리:
+    1. 손실함수 정의: MSE(w,b) = mean((y_pred - y_true)^2)
+    2. 손실을 w, b로 미분하여 그래디언트(기울기) 계산
+    3. 반복: w와 b를 그래디언트 반대 방향으로 조정하여 손실 감소
+
+    수학 설명:
+    - 예측값: y_pred = w*x + b
+    - 오차: err = y_pred - y_true = (w*x + b) - y
+    - 손실: L = mean(err^2)
+    - w의 그래디언트: dL/dw = mean(2 * err * x) = (2/n) * sum(err * x)
+      (chain rule: 제곱의 미분이 2*err, 내부의 (w*x + b)를 w로 미분하면 x)
+    - b의 그래디언트: dL/db = mean(2 * err) = (2/n) * sum(err)
+      (내부의 (w*x + b)를 b로 미분하면 1)
+    - 파라미터 업데이트: w = w - lr * dw, b = b - lr * db
+      (음수 그래디언트 방향으로 이동하여 손실 감소)
+
+    Args:
+        x: 입력 데이터 (1D 배열)
+        y: 목표값 (1D 배열)
+        lr: 학습율 (learning rate) - 한 번에 얼마나 크게 이동할지
+        steps: 반복 횟수
+        w0: 가중치 초기값
+        b0: 편향 초기값
+
+    Returns:
+        LinearGDResult: 최적 w, b와 각 스텝의 손실값 리스트
     """
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
