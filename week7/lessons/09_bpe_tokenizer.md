@@ -51,7 +51,7 @@ python llm_from_scratch/code/week7/train_bpe_tokenizer.py --input llm_from_scrat
 python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_tokenizer.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
 ```
 
-> 구현 참고: [`bpe_tokenizer.py`](../code/week7/bpe_tokenizer.py)
+> 구현 참고: [`bpe_tokenizer.py`](../code/bpe_tokenizer.py)
 
 ---
 
@@ -62,6 +62,6 @@ python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/mode
 
 ---
 
-과제: [WEEK7](../exercises/WEEK7.md)
+과제: [WEEK7](../README.md)
 
 [← 이전: 샘플링 & 평가](08_sampling_and_eval.md) | [목차](INDEX.md) | [다음: MiniGPT (PyTorch) →](10_minigpt_pytorch.md)

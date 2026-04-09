@@ -71,6 +71,6 @@
 
 ---
 
-과제: [WEEK1](../exercises/WEEK1.md)
+과제: [WEEK1](../README.md)
 
 [← 이전: 글자 토큰화](02_tokenization_char.md) | [목차](INDEX.md) | [다음: 신경망 빅램 LM →](04_neural_bigram.md)

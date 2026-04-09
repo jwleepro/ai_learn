@@ -74,7 +74,7 @@ attention을 기호 없이 말하면 아래 4단계입니다.
 - `weights`: `(T, T)` (각 행의 합이 1; “어디를 얼마나 볼지”)
 - `out`: `(T, Dh)` (V를 weights로 섞은 결과)
 
-> 이 프로젝트의 구현 참고: [`attention_numpy.py`](../code/week4/attention_numpy.py)
+> 이 프로젝트의 구현 참고: [`attention_numpy.py`](../code/attention_numpy.py)
 
 ---
 
@@ -103,6 +103,6 @@ python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scrat
 
 ---
 
-과제: [WEEK4](../exercises/WEEK4.md)
+과제: [WEEK4](../README.md)
 
 [← 이전: MLP 언어모델](05_mlp_context_lm.md) | [목차](INDEX.md) | [다음: Transformer 블록 →](07_transformer_block.md)

@@ -2,7 +2,7 @@
 
 목표: “파인튜닝을 돌릴 수 있는 상태”가 되려면 무엇을 준비해야 하는지 감을 잡습니다.
 
-> 관련 레슨: [11_finetuning_essentials — 파인튜닝 필수 용어/흐름](../lessons/11_finetuning_essentials.md), [12_lora_qlora_and_ops — LoRA/QLoRA + 운영](../lessons/12_lora_qlora_and_ops.md)
+> 관련 레슨: [11_finetuning_essentials — 파인튜닝 필수 용어/흐름](lessons/11_finetuning_essentials.md), [12_lora_qlora_and_ops — LoRA/QLoRA + 운영](lessons/12_lora_qlora_and_ops.md)
 
 ---
 
@@ -26,7 +26,7 @@
 
 아래 포맷으로 JSONL 파일을 하나 만드세요.
 
-- 파일: `llm_from_scratch/data/sft_toy.jsonl`
+- 파일: `data/sft_toy.jsonl`
 - 각 줄은 JSON 1개
 - 최소 키: `instruction`, `output`
 
@@ -47,9 +47,9 @@
 
 아래를 실행해 JSONL이 깨져 있지 않은지 확인하세요.
 
-> 소스: [`validate_sft_jsonl.py`](../code/week8/validate_sft_jsonl.py)
+> 소스: [`validate_sft_jsonl.py`](code/validate_sft_jsonl.py)
 ```powershell
-python llm_from_scratch/code/week8/validate_sft_jsonl.py --input llm_from_scratch/data/sft_toy.jsonl
+python code/validate_sft_jsonl.py --input data/sft_toy.jsonl
 ```
 
 질문:

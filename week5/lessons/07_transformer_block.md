@@ -88,12 +88,12 @@ python llm_from_scratch/code/week5/demo_transformer_forward.py --input llm_from_
 - 입력 토큰 수(T)만큼 logits이 나온다
 - 마지막 위치 logits으로 “다음 토큰 분포”를 만든다
 
-> 구현 참고: [`transformer_numpy.py`](../code/week5/transformer_numpy.py)
+> 구현 참고: [`transformer_numpy.py`](../code/transformer_numpy.py)
 
 ---
 
 ---
 
-과제: [WEEK5](../exercises/WEEK5.md)
+과제: [WEEK5](../README.md)
 
 [← 이전: Self-Attention](06_self_attention.md) | [목차](INDEX.md) | [다음: 샘플링 & 평가 →](08_sampling_and_eval.md)

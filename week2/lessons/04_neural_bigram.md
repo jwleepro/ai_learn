@@ -89,12 +89,12 @@ loss는 "정답 토큰 확률을 올리고, 나머지 토큰 확률은 상대적
 - `train_bigram_nn.py`: `W`를 학습하고 loss를 출력
 - `generate_bigram_nn.py`: 학습된 `W`로 텍스트 생성
 
-> 구현 참고: [`bigram_nn.py`](../code/week2/bigram_nn.py)
+> 구현 참고: [`bigram_nn.py`](../code/bigram_nn.py)
 
 코드는 이미 `llm_from_scratch/code/`에 준비되어 있으니, Week 2 과제에서 바로 실행해보세요.
 
 ---
 
-과제: [WEEK2](../exercises/WEEK2.md)
+과제: [WEEK2](../README.md)
 
 [← 이전: 빅램 카운트 모델](03_bigram_counts.md) | [목차](INDEX.md) | [다음: MLP 언어모델 →](05_mlp_context_lm.md)

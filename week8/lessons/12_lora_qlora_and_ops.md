@@ -151,6 +151,6 @@
 
 ---
 
-과제: [WEEK8](../exercises/WEEK8.md)
+과제: [WEEK8](../README.md)
 
 [← 이전: 파인튜닝 필수 용어](11_finetuning_essentials.md) | [목차](INDEX.md)

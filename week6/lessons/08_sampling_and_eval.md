@@ -42,7 +42,7 @@
 - loss가 낮을수록 좋고
 - perplexity도 낮을수록 좋습니다.
 
-> 구현 참고: [`evaluate_lm.py`](../code/week6/evaluate_lm.py)
+> 구현 참고: [`evaluate_lm.py`](../code/evaluate_lm.py)
 
 ---
 
@@ -65,6 +65,6 @@ python llm_from_scratch/code/week6/evaluate_lm.py mlp_lm --model llm_from_scratc
 
 ---
 
-과제: [WEEK6](../exercises/WEEK6.md)
+과제: [WEEK6](../README.md)
 
 [← 이전: Transformer 블록](07_transformer_block.md) | [목차](INDEX.md) | [다음: BPE 토크나이저 →](09_bpe_tokenizer.md)

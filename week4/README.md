@@ -1,6 +1,6 @@
 # Week 4 과제: Attention 감각 만들기
 
-> 관련 레슨: [06_self_attention — Self-Attention](../lessons/06_self_attention.md)
+> 관련 레슨: [06_self_attention — Self-Attention](lessons/06_self_attention.md)
 
 목표: “attention 가중치가 무엇을 의미하는지”를 직접 출력해보고 이해합니다.
 
@@ -10,11 +10,11 @@
 
 아래 두 명령을 실행해서 비교하세요.
 
-> 소스: [`demo_self_attention.py`](../code/week4/demo_self_attention.py)
-> 소스: [`demo_self_attention.py`](../code/week4/demo_self_attention.py)
+> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
+> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
 ```powershell
-python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
-python llm_from_scratch/code/week4/demo_self_attention.py --input llm_from_scratch/data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8 --no_causal
+python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
+python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8 --no_causal
 ```
 
 질문:

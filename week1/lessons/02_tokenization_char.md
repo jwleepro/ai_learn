@@ -56,6 +56,6 @@ hello
 
 ---
 
-과제: [WEEK1](../exercises/WEEK1.md)
+과제: [WEEK1](../README.md)
 
 [← 이전: 언어모델이 하는 일](01_why_language_model.md) | [목차](INDEX.md) | [다음: 빅램 카운트 모델 →](03_bigram_counts.md)

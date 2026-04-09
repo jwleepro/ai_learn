@@ -1,6 +1,6 @@
 # Week 3 과제 (Core / numpy): MLP LM
 
-> 관련 레슨: [05_mlp_context_lm — MLP 언어모델](../lessons/05_mlp_context_lm.md)
+> 관련 레슨: [05_mlp_context_lm — MLP 언어모델](lessons/05_mlp_context_lm.md)
 
 목표: 컨텍스트 길이 `k`를 늘려보며, “문맥을 본다”가 모델 품질에 어떤 영향을 주는지 경험합니다.
 
@@ -8,9 +8,9 @@
 
 ## 0) 학습 실행(기본)
 
-> 소스: [`train_mlp_lm.py`](../code/week3/train_mlp_lm.py)
+> 소스: [`train_mlp_lm.py`](code/train_mlp_lm.py)
 ```powershell
-python llm_from_scratch/code/week3/train_mlp_lm.py --input llm_from_scratch/data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
+python code/train_mlp_lm.py --input data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
 ```
 
 저장:
@@ -19,9 +19,9 @@ python llm_from_scratch/code/week3/train_mlp_lm.py --input llm_from_scratch/data
 
 생성:
 
-> 소스: [`generate_mlp_lm.py`](../code/week3/generate_mlp_lm.py)
+> 소스: [`generate_mlp_lm.py`](code/generate_mlp_lm.py)
 ```powershell
-python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
+python code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
 ```
 
 ---
@@ -57,7 +57,7 @@ python llm_from_scratch/code/week3/generate_mlp_lm.py --model llm_from_scratch/m
 
 ## 3) 내 코퍼스로 학습(권장)
 
-`llm_from_scratch/data/my_corpus.txt`로 바꿔서:
+`data/my_corpus.txt`로 바꿔서:
 
 - 카운트 빅램
 - 신경망 빅램

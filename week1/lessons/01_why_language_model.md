@@ -78,6 +78,6 @@ hello
 
 ---
 
-과제: [WEEK1](../exercises/WEEK1.md)
+과제: [WEEK1](../README.md)
 
 [← 이전: 딥러닝 기초](00_dl_basics.md) | [목차](INDEX.md) | [다음: 글자 토큰화 →](02_tokenization_char.md)

@@ -154,6 +154,6 @@
 
 ---
 
-과제: [WEEK8](../exercises/WEEK8.md)
+과제: [WEEK8](../README.md)
 
 [← 이전: MiniGPT (PyTorch)](10_minigpt_pytorch.md) | [목차](INDEX.md) | [다음: LoRA/QLoRA + 운영 →](12_lora_qlora_and_ops.md)

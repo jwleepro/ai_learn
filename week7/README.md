@@ -1,6 +1,6 @@
 # Week 7 과제: BPE 토크나이저 튜닝
 
-> 관련 레슨: [09_bpe_tokenizer — BPE 토크나이저 직접 만들기](../lessons/09_bpe_tokenizer.md)
+> 관련 레슨: [09_bpe_tokenizer — BPE 토크나이저 직접 만들기](lessons/09_bpe_tokenizer.md)
 
 목표: merge 수를 바꿔가며 토큰이 어떻게 바뀌는지 관찰합니다.
 
@@ -10,24 +10,24 @@
 
 아래를 각각 실행하세요:
 
-> 소스: [`train_bpe_tokenizer.py`](../code/week7/train_bpe_tokenizer.py)
-> 소스: [`train_bpe_tokenizer.py`](../code/week7/train_bpe_tokenizer.py)
-> 소스: [`train_bpe_tokenizer.py`](../code/week7/train_bpe_tokenizer.py)
+> 소스: [`train_bpe_tokenizer.py`](code/train_bpe_tokenizer.py)
+> 소스: [`train_bpe_tokenizer.py`](code/train_bpe_tokenizer.py)
+> 소스: [`train_bpe_tokenizer.py`](code/train_bpe_tokenizer.py)
 ```powershell
-python llm_from_scratch/code/week7/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 50  --out llm_from_scratch/models/bpe_50.json
-python llm_from_scratch/code/week7/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 200 --out llm_from_scratch/models/bpe_200.json
-python llm_from_scratch/code/week7/train_bpe_tokenizer.py --input llm_from_scratch/data/tiny_corpus_ko.txt --merges 800 --out llm_from_scratch/models/bpe_800.json
+python code/train_bpe_tokenizer.py --input data/tiny_corpus_ko.txt --merges 50  --out llm_from_scratch/models/bpe_50.json
+python code/train_bpe_tokenizer.py --input data/tiny_corpus_ko.txt --merges 200 --out llm_from_scratch/models/bpe_200.json
+python code/train_bpe_tokenizer.py --input data/tiny_corpus_ko.txt --merges 800 --out llm_from_scratch/models/bpe_800.json
 ```
 
 각 토크나이저로 같은 텍스트를 인코딩해 비교:
 
-> 소스: [`demo_bpe.py`](../code/week7/demo_bpe.py)
-> 소스: [`demo_bpe.py`](../code/week7/demo_bpe.py)
-> 소스: [`demo_bpe.py`](../code/week7/demo_bpe.py)
+> 소스: [`demo_bpe.py`](code/demo_bpe.py)
+> 소스: [`demo_bpe.py`](code/demo_bpe.py)
+> 소스: [`demo_bpe.py`](code/demo_bpe.py)
 ```powershell
-python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_50.json  --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
-python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_200.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
-python llm_from_scratch/code/week7/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_800.json --text_file llm_from_scratch/data/tiny_corpus_ko.txt --max_tokens 40
+python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_50.json  --text_file data/tiny_corpus_ko.txt --max_tokens 40
+python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_200.json --text_file data/tiny_corpus_ko.txt --max_tokens 40
+python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_800.json --text_file data/tiny_corpus_ko.txt --max_tokens 40
 ```
 
 질문:
