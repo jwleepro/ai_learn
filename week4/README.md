@@ -1,35 +1,32 @@
-# Week 4 과제: Attention 감각 만들기
+# Week 4 과제 (Core / numpy)
 
-> 관련 레슨: [06_self_attention — Self-Attention](lessons/06_self_attention.md)
+> 관련 레슨: [06_self_attention](lessons/06_self_attention.md)
 
-목표: “attention 가중치가 무엇을 의미하는지”를 직접 출력해보고 이해합니다.
+목표: 트랜스포머의 핵심인 **Self-Attention**의 동작 원리를 NumPy 구현을 통해 이해합니다.
 
 ---
 
-## 과제 1) causal vs non-causal 비교
+## 과제 1) Self-Attention 가중치 분석
 
-아래 두 명령을 실행해서 비교하세요.
+아래 명령을 실행하여 특정 위치의 토큰이 다른 토큰들을 어떻게 "주목(attend)"하는지 확인하세요.
 
-> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
-> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
+> 소스: [`week4_complete.py`](code/week4_complete.py)
 ```powershell
-python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
-python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8 --no_causal
+python code/week4_complete.py --input data/tiny_corpus_ko.txt --tokens 20 --pos 19
 ```
 
 질문:
-
-- non-causal에서 “미래”로 가는 weight가 생기나요?
-- 언어모델 학습에서 non-causal이 왜 문제가 되나요?
+1. `causal=True`일 때와 아닐 때(`--no_causal` 추가), 어텐션 가중치의 분포가 어떻게 달라지나요?
+2. 특정 조사나 어미 뒤에 올 때 어텐션이 쏠리는 위치가 있나요?
 
 ---
 
-## 과제 2) 위치를 바꿔가며 관찰
+## 과제 2) Causal Masking 이해
 
-`--pos`를 5, 10, 15, 23처럼 바꾸면서:
+`week4_complete.py` 코드 내의 `causal_mask` 함수가 어떻게 행렬의 윗부분을 `-1e9`로 채우는지 확인하고, 이것이 Softmax를 거친 후 어떤 결과가 되는지 설명해보세요.
 
-- 어떤 위치는 “바로 이전”을 많이 보고
-- 어떤 위치는 “조금 더 과거”를 보는지
+---
 
-관찰해보세요.
+## 자기 점검(자동)
 
+(Week 4는 학습 코드가 포함되어 있지 않으므로, 별도의 단위 테스트는 생략하거나 구현 검증 위주로 진행합니다.)

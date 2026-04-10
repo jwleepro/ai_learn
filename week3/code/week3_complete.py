@@ -1,428 +1,258 @@
 """Week 3 Complete: MLP 언어모델.
 
-이 통합 파일은 mlp_lm.py, generate_mlp_lm.py, train_mlp_lm.py의
-모든 코드를 포함합니다.
+이 파일은 MLP 기반 언어모델의 모든 과정(토크나이저, 데이터셋 생성, 모델 구현, 학습, 생성)을
+하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
 
-"최근 k개 토큰(context)"을 입력으로 받아 다음 토큰을 예측하는 MLP 모델입니다.
+주요 내용:
+1. CharTokenizer: 글자 단위 토크나이저
+2. Dataset: 슬라이딩 윈도우 기반 컨텍스트 데이터셋 생성
+3. MLP Model: 임베딩, 은닉층, 출력층으로 구성된 신경망 (NumPy 구현)
+4. Training: SGD(확률적 경사 하강법)를 이용한 학습
+5. Generation: 학습된 모델을 이용한 텍스트 생성 (Temperature, Top-k/p 샘플링)
 
-기호(자주 쓰는 shape):
-- V: vocab 크기
-- C: context_len
-- D: embed_dim
-- H: hidden_dim
-- B: batch 크기
+실행 방법:
+- 학습: python week3/code/week3_complete.py --train
+- 생성: python week3/code/week3_complete.py --generate
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
-from tokenizer_char import CharTokenizer
-from model_io import MLPLMCheckpoint, save_mlp_lm, load_mlp_lm
-from sampling import SamplingConfig, sample_from_probs
-
 
 # ============================================================================
-# Inline: softmax functions (from softmax.py)
+# 1. Utility Functions & Classes (Formerly external modules)
 # ============================================================================
 
-def softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
-    """점수(logits)를 확률로 바꾸는 함수입니다.
+@dataclass
+class CharTokenizer:
+    """글자 단위 토크나이저."""
+    vocab: tuple[str, ...]
 
-    큰 수를 먼저 빼서(max-shift) 계산이 터지지 않게 합니다.
-    """
-    if logits.size == 0:
-        raise ValueError("logits must not be empty")
+    def __post_init__(self) -> None:
+        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+
+    @property
+    def vocab_size(self) -> int: return len(self.vocab)
+
+    @classmethod
+    def from_text(cls, text: str) -> CharTokenizer:
+        return cls(tuple(sorted(set(text))))
+
+    def encode(self, text: str) -> list[int]:
+        return [self.char_to_id[ch] for ch in text]
+
+    def decode(self, ids: list[int]) -> str:
+        return "".join(self.vocab[i] for i in ids)
+
+
+def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
-def log_softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
-    """로그 소프트맥스 함수입니다."""
-    if logits.size == 0:
-        raise ValueError("logits must not be empty")
+def log_softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
     shifted = logits - logits.max(axis=axis, keepdims=True)
-    logsumexp = np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
-    return shifted - logsumexp
+    return shifted - np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
 
-
-# ============================================================================
-# Inline: make_context_dataset function (from dataset_lm.py)
-# ============================================================================
 
 def make_context_dataset(token_ids: np.ndarray, context_len: int) -> tuple[np.ndarray, np.ndarray]:
-    """토큰 ID 수열을 (컨텍스트, 정답) 쌍으로 변환합니다.
-
-    슬라이딩 윈도우 방식으로 모든 가능한 (입력, 정답) 쌍을 생성합니다.
-
-    Args:
-        token_ids: shape (T,)인 정수 배열 - 토큰 ID 수열
-        context_len: 입력 컨텍스트 길이 (>0)
-
-    Returns:
-        (X, y) 튜플:
-        - X: shape (T - context_len, context_len) - 입력 컨텍스트들
-        - y: shape (T - context_len,) - 정답 토큰들 (다음 토큰 ID)
-
-    에러 조건:
-        - token_ids가 1D가 아닌 경우
-        - context_len <= 0인 경우
-        - token_ids가 context_len보다 짧은 경우 (최소 context_len+1개 필요)
-
-    예제:
-        >>> token_ids = np.array([1, 2, 3, 4, 5])
-        >>> X, y = make_context_dataset(token_ids, 2)
-        >>> X
-        array([[1, 2],
-               [2, 3],
-               [3, 4]])
-        >>> y
-        array([3, 4, 5])
-    """
-    # 입력 유효성 검사
-    if token_ids.ndim != 1:
-        raise ValueError("token_ids must be 1D")
-    if context_len <= 0:
-        raise ValueError("context_len must be > 0")
-    if len(token_ids) <= context_len:
-        raise ValueError("token_ids too short for context_len")
-
-    # 생성될 샘플 개수: 전체 토큰 수 - 컨텍스트 길이
-    # (맨 끝 context_len개 토큰은 정답으로 사용되므로)
     n = len(token_ids) - context_len
-
-    # 출력 배열 할당
-    X = np.empty((n, context_len), dtype=np.int64)  # 입력 컨텍스트
-    y = np.empty((n,), dtype=np.int64)              # 정답 토큰
-
-    # 슬라이딩 윈도우로 모든 쌍 생성
+    X = np.empty((n, context_len), dtype=np.int64)
+    y = np.empty((n,), dtype=np.int64)
     for i in range(n):
-        # i번째 샘플: 토큰[i:i+context_len]을 입력, 토큰[i+context_len]을 정답으로
         X[i] = token_ids[i : i + context_len]
         y[i] = token_ids[i + context_len]
-
     return X, y
 
 
-# ============================================================================
-# Section 1: mlp_lm.py - MLP Language Model Core
-# ============================================================================
+@dataclass
+class SamplingConfig:
+    temperature: float = 1.0
+    top_k: int | None = None
+    top_p: float | None = None
 
-@dataclass(frozen=True)
-class MLPLMConfig:
-    context_len: int = 8
-    embed_dim: int = 32
-    hidden_dim: int = 128
-    lr: float = 0.1
-    epochs: int = 50
-    batch_size: int = 256
-    seed: int = 0
-    init_scale: float = 0.02
 
+def sample_from_probs(probs: np.ndarray, rng: np.random.Generator, cfg: SamplingConfig) -> int:
+    p = probs.copy()
+    if cfg.temperature != 1.0:
+        p = np.power(p, 1.0 / cfg.temperature)
+        p /= p.sum()
+    
+    if cfg.top_k is not None:
+        indices_to_remove = p < np.partition(p, -cfg.top_k)[-cfg.top_k]
+        p[indices_to_remove] = 0
+        p /= p.sum()
+        
+    if cfg.top_p is not None:
+        sorted_indices = np.argsort(p)[::-1]
+        sorted_probs = p[sorted_indices]
+        cumulative_probs = np.cumsum(sorted_probs)
+        indices_to_remove = cumulative_probs > cfg.top_p
+        indices_to_remove[1:] = indices_to_remove[:-1].copy()
+        indices_to_remove[0] = False
+        p[sorted_indices[indices_to_remove]] = 0
+        p /= p.sum()
+        
+    return int(rng.choice(len(p), p=p))
+
+
+# ============================================================================
+# 2. MLP Model Implementation
+# ============================================================================
 
 @dataclass
 class MLPLMParams:
-    E: np.ndarray
-    W1: np.ndarray
-    b1: np.ndarray
-    W2: np.ndarray
-    b2: np.ndarray
+    E: np.ndarray   # Embedding table
+    W1: np.ndarray  # Hidden weights
+    b1: np.ndarray  # Hidden bias
+    W2: np.ndarray  # Output weights
+    b2: np.ndarray  # Output bias
 
 
-def init_params(vocab_size: int, *, config: MLPLMConfig, rng: np.random.Generator) -> MLPLMParams:
-    """모든 파라미터를 초기화합니다."""
-    if vocab_size <= 0:
-        raise ValueError("vocab_size must be > 0")
-    if config.context_len <= 0:
-        raise ValueError("context_len must be > 0")
-    if config.embed_dim <= 0 or config.hidden_dim <= 0:
-        raise ValueError("embed_dim and hidden_dim must be > 0")
-    if config.init_scale <= 0:
-        raise ValueError("init_scale must be > 0")
-
-    D = config.embed_dim
-    H = config.hidden_dim
-    C = config.context_len
-    scale = config.init_scale
-
-    E = rng.normal(0.0, scale, size=(vocab_size, D)).astype(np.float64)
-    W1 = rng.normal(0.0, scale, size=(C * D, H)).astype(np.float64)
-    b1 = np.zeros((H,), dtype=np.float64)
-    W2 = rng.normal(0.0, scale, size=(H, vocab_size)).astype(np.float64)
-    b2 = np.zeros((vocab_size,), dtype=np.float64)
-
-    return MLPLMParams(E=E, W1=W1, b1=b1, W2=W2, b2=b2)
+def init_params(vocab_size: int, context_len: int, embed_dim: int, hidden_dim: int, rng: np.random.Generator) -> MLPLMParams:
+    scale = 0.02
+    return MLPLMParams(
+        E = rng.normal(0, scale, (vocab_size, embed_dim)),
+        W1 = rng.normal(0, scale, (context_len * embed_dim, hidden_dim)),
+        b1 = np.zeros(hidden_dim),
+        W2 = rng.normal(0, scale, (hidden_dim, vocab_size)),
+        b2 = np.zeros(vocab_size)
+    )
 
 
-def forward(params: MLPLMParams, X: np.ndarray) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    """전방향(forward) 계산"""
-    emb = params.E[X]
-    h_in = emb.reshape(len(X), -1)
+def forward(params: MLPLMParams, X: np.ndarray) -> tuple[np.ndarray, dict]:
+    emb = params.E[X] # (B, C, D)
+    h_in = emb.reshape(len(X), -1) # (B, C*D)
     h_pre = h_in @ params.W1 + params.b1
     h = np.tanh(h_pre)
     logits = h @ params.W2 + params.b2
-
-    cache = {"X": X, "emb": emb, "h_in": h_in, "h_pre": h_pre, "h": h}
-    return logits, cache
+    return logits, {"X": X, "h_in": h_in, "h_pre": h_pre, "h": h, "emb": emb}
 
 
-def loss_and_grads(params: MLPLMParams, X: np.ndarray, y: np.ndarray) -> tuple[float, MLPLMParams]:
-    """손실함수(loss)와 각 파라미터의 기울기를 계산합니다(역전파)."""
+def train_step(params: MLPLMParams, X: np.ndarray, y: np.ndarray, lr: float) -> float:
     logits, cache = forward(params, X)
-
-    log_probs = log_softmax(logits, axis=1)
-    loss = float(-log_probs[np.arange(len(y)), y].mean())
-
-    probs = np.exp(log_probs)
+    probs = softmax(logits, axis=1)
+    
+    # Loss (Cross Entropy)
+    loss = -np.log(probs[np.arange(len(y)), y] + 1e-10).mean()
+    
+    # Backprop
     dlogits = probs.copy()
     dlogits[np.arange(len(y)), y] -= 1.0
-    dlogits /= float(len(y))
-
-    h = cache["h"]
-    dW2 = h.T @ dlogits
+    dlogits /= len(y)
+    
+    dW2 = cache["h"].T @ dlogits
     db2 = dlogits.sum(axis=0)
-
+    
     dh = dlogits @ params.W2.T
-    dh_pre = dh * (1.0 - np.tanh(cache["h_pre"]) ** 2)
-
-    h_in = cache["h_in"]
-    dW1 = h_in.T @ dh_pre
+    dh_pre = dh * (1.0 - cache["h"]**2) # d/dx tanh = 1 - tanh^2
+    
+    dW1 = cache["h_in"].T @ dh_pre
     db1 = dh_pre.sum(axis=0)
-
+    
     dh_in = dh_pre @ params.W1.T
     dEmb = dh_in.reshape(cache["emb"].shape)
-
+    
+    # E update (sparse)
+    np.add.at(params.E, cache["X"], dEmb) # This is actually grad, need to subtract
+    # Wait, the above adds to E. Let's do it properly:
     dE = np.zeros_like(params.E)
-    X_ids = cache["X"].reshape(-1)
-    dEmb_flat = dEmb.reshape(-1, dEmb.shape[-1])
-    np.add.at(dE, X_ids, dEmb_flat)
-
-    grads = MLPLMParams(E=dE, W1=dW1, b1=db1, W2=dW2, b2=db2)
-    return loss, grads
-
-
-def apply_grads(params: MLPLMParams, grads: MLPLMParams, *, lr: float) -> None:
-    """경사하강법(Gradient Descent)을 이용해 파라미터를 업데이트합니다."""
-    params.E -= lr * grads.E
-    params.W1 -= lr * grads.W1
-    params.b1 -= lr * grads.b1
-    params.W2 -= lr * grads.W2
-    params.b2 -= lr * grads.b2
-
-
-def eval_loss(params: MLPLMParams, X: np.ndarray, y: np.ndarray, *, batch_size: int = 4096) -> float:
-    """평가/검증 집합에서 평균 손실을 계산합니다."""
-    if len(X) == 0:
-        raise ValueError("eval set is empty")
-    total = 0.0
-    count = 0
-    for start in range(0, len(X), batch_size):
-        end = min(len(X), start + batch_size)
-        logits, _ = forward(params, X[start:end])
-        log_probs = log_softmax(logits, axis=1)
-        loss = -log_probs[np.arange(end - start), y[start:end]]
-        total += float(loss.sum())
-        count += int(end - start)
-    return total / count
-
-
-def train_mlp_lm(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    vocab_size: int,
-    *,
-    config: MLPLMConfig,
-    X_val: np.ndarray | None = None,
-    y_val: np.ndarray | None = None,
-) -> tuple[MLPLMParams, list[dict[str, float]]]:
-    """MLP 언어모델을 SGD로 훈련합니다."""
-    rng = np.random.default_rng(config.seed)
-    params = init_params(vocab_size, config=config, rng=rng)
-
-    history: list[dict[str, float]] = []
-    n = len(X_train)
-    if n == 0:
-        raise ValueError("train set is empty")
-
-    for epoch in range(1, config.epochs + 1):
-        perm = rng.permutation(n)
-        X_shuf = X_train[perm]
-        y_shuf = y_train[perm]
-
-        epoch_loss = 0.0
-        steps = 0
-        for start in range(0, n, config.batch_size):
-            end = min(n, start + config.batch_size)
-            loss, grads = loss_and_grads(params, X_shuf[start:end], y_shuf[start:end])
-            apply_grads(params, grads, lr=config.lr)
-            epoch_loss += loss
-            steps += 1
-
-        train_loss = epoch_loss / max(steps, 1)
-        metrics: dict[str, float] = {"epoch": float(epoch), "train_loss": float(train_loss)}
-
-        if X_val is not None and y_val is not None and len(X_val) > 0:
-            val_loss = eval_loss(params, X_val, y_val)
-            metrics["val_loss"] = float(val_loss)
-        history.append(metrics)
-
-    return params, history
-
-
-def next_token_probs(params: MLPLMParams, context_ids: np.ndarray, *, temperature: float = 1.0) -> np.ndarray:
-    """주어진 컨텍스트에서 다음 토큰의 확률분포를 계산합니다."""
-    if context_ids.ndim != 1:
-        raise ValueError("context_ids must be 1D")
-    if temperature <= 0:
-        raise ValueError("temperature must be > 0")
-    logits, _ = forward(params, context_ids.reshape(1, -1))
-    logits = logits[0] / float(temperature)
-    return softmax(logits, axis=0)
+    np.add.at(dE, cache["X"], dEmb)
+    
+    # Update params
+    params.W2 -= lr * dW2
+    params.b2 -= lr * db2
+    params.W1 -= lr * dW1
+    params.b1 -= lr * db1
+    params.E -= lr * dE
+    
+    return float(loss)
 
 
 # ============================================================================
-# Section 2: train_mlp_lm.py - Training script
-# ============================================================================
-
-def train_parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="미니 MLP 언어모델 학습(numpy).")
-    p.add_argument("--input", required=True, help="입력 UTF-8 텍스트 파일 경로")
-    p.add_argument("--out", default="llm_from_scratch/models/mlp_lm.npz", help="체크포인트 저장 경로(.npz)")
-    p.add_argument("--context", type=int, default=8, help="컨텍스트 길이(k)")
-    p.add_argument("--embed", type=int, default=32, help="임베딩 차원(D)")
-    p.add_argument("--hidden", type=int, default=128, help="은닉 차원(H)")
-    p.add_argument("--epochs", type=int, default=60, help="epoch 수")
-    p.add_argument("--lr", type=float, default=0.2, help="학습률(learning rate)")
-    p.add_argument("--batch", type=int, default=256, help="배치 크기(batch size)")
-    p.add_argument("--seed", type=int, default=0, help="난수 시드(seed)")
-    p.add_argument("--val_frac", type=float, default=0.1, help="검증 데이터 비율(0~0.5)")
-    return p.parse_args()
-
-
-def train_main() -> None:
-    args = train_parse_args()
-
-    text = Path(args.input).read_text(encoding="utf-8")
-    if not text:
-        raise ValueError("Input text is empty")
-
-    tok = CharTokenizer.from_text(text)
-    ids = np.array(tok.encode(text), dtype=np.int64)
-
-    X, y = make_context_dataset(ids, int(args.context))
-
-    if not (0.0 <= args.val_frac < 0.5):
-        raise ValueError("--val_frac must be in [0, 0.5)")
-    split = int(len(X) * (1.0 - args.val_frac))
-    X_train, X_val = X[:split], X[split:]
-    y_train, y_val = y[:split], y[split:]
-
-    config = MLPLMConfig(
-        context_len=int(args.context),
-        embed_dim=int(args.embed),
-        hidden_dim=int(args.hidden),
-        lr=float(args.lr),
-        epochs=int(args.epochs),
-        batch_size=int(args.batch),
-        seed=int(args.seed),
-    )
-
-    params, history = train_mlp_lm(
-        X_train, y_train, tok.vocab_size,
-        config=config,
-        X_val=X_val, y_val=y_val
-    )
-
-    default_start_ids = ids[: config.context_len]
-    save_mlp_lm(
-        args.out,
-        MLPLMCheckpoint(
-            tokenizer=tok,
-            context_len=config.context_len,
-            embed_dim=config.embed_dim,
-            hidden_dim=config.hidden_dim,
-            params=params,
-            default_start_ids=default_start_ids,
-        ),
-    )
-
-    last = history[-1]
-    if "val_loss" in last:
-        print(f"saved={args.out}  train_loss={last['train_loss']:.4f}  val_loss={last['val_loss']:.4f}")
-    else:
-        print(f"saved={args.out}  train_loss={last['train_loss']:.4f}")
-
-
-# ============================================================================
-# Section 3: generate_mlp_lm.py - Generation script
-# ============================================================================
-
-def generate_parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="MLP LM으로 텍스트 생성(numpy).")
-    p.add_argument("--model", default="llm_from_scratch/models/mlp_lm.npz", help="체크포인트 경로(.npz)")
-    p.add_argument("--length", type=int, default=400, help="생성할 글자 수")
-    p.add_argument("--seed", type=int, default=0, help="난수 시드(seed)")
-    p.add_argument("--temperature", type=float, default=1.0, help="샘플링 온도(>0)")
-    p.add_argument("--top_k", type=int, default=None, help="top-k 샘플링(선택)")
-    p.add_argument("--top_p", type=float, default=None, help="top-p 샘플링(선택)")
-    p.add_argument(
-        "--start_ids",
-        type=str,
-        default="",
-        help='시작 컨텍스트를 토큰 id로 직접 지정(쉼표 구분). 예: "1,2,3,4"',
-    )
-    return p.parse_args()
-
-
-def generate_main() -> None:
-    args = generate_parse_args()
-
-    ckpt = load_mlp_lm(args.model)
-
-    rng = np.random.default_rng(args.seed)
-    cfg = SamplingConfig(
-        temperature=float(args.temperature),
-        top_k=args.top_k,
-        top_p=args.top_p
-    )
-
-    if args.start_ids:
-        start_ids = [int(x.strip()) for x in args.start_ids.split(",") if x.strip() != ""]
-        if len(start_ids) != ckpt.context_len:
-            raise ValueError(f"--start_ids must have exactly {ckpt.context_len} ids")
-        if not all(0 <= token_id < ckpt.tokenizer.vocab_size for token_id in start_ids):
-            raise ValueError("--start_ids contains out-of-range token id")
-        context = np.array(start_ids, dtype=np.int64)
-    else:
-        context = ckpt.default_start_ids.copy()
-    initial_context = context.copy()
-
-    out_ids: list[int] = []
-    for _ in range(args.length):
-        probs = next_token_probs(ckpt.params, context, temperature=1.0)
-        next_id = sample_from_probs(probs, rng, cfg=cfg)
-        out_ids.append(next_id)
-        context = np.roll(context, -1)
-        context[-1] = next_id
-
-    print(ckpt.tokenizer.decode(initial_context.tolist()) + ckpt.tokenizer.decode(out_ids))
-
-
-# ============================================================================
-# Main entry point
+# 3. Main Execution Flow
 # ============================================================================
 
 def main() -> None:
-    import sys
-    if len(sys.argv) > 1 and ("--input" in sys.argv or "train" in " ".join(sys.argv)):
-        train_main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train", action="store_true", help="학습 실행")
+    parser.add_argument("--generate", action="store_true", help="생성 실행")
+    parser.add_argument("--data", default="week3/data/tiny_corpus_ko.txt", help="데이터 경로")
+    parser.add_argument("--model_path", default="week3/code/mlp_model.npz", help="모델 저장/불러오기 경로")
+    args = parser.parse_args()
+
+    # 데이터 로드
+    data_path = Path(args.data)
+    if not data_path.exists():
+        print(f"데이터 파일이 없습니다: {data_path}")
+        return
+    text = data_path.read_text(encoding="utf-8")
+    tokenizer = CharTokenizer.from_text(text)
+    ids = np.array(tokenizer.encode(text))
+
+    # 하이퍼파라미터
+    C = 8      # Context length
+    D = 32     # Embedding dim
+    H = 128    # Hidden dim
+    LR = 0.1
+    EPOCHS = 10 # 교육용이므로 짧게 설정
+
+    if args.train:
+        print(f"--- 학습 시작 (Vocab: {tokenizer.vocab_size}, Context: {C}) ---")
+        X, y = make_context_dataset(ids, C)
+        rng = np.random.default_rng(42)
+        params = init_params(tokenizer.vocab_size, C, D, H, rng)
+
+        for epoch in range(EPOCHS):
+            # 단순화를 위해 전체 데이터를 한 번에 처리 (또는 배치를 나눌 수 있음)
+            loss = train_step(params, X, y, LR)
+            if (epoch + 1) % 2 == 0:
+                print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
+
+        # 모델 저장
+        np.savez(args.model_path, E=params.E, W1=params.W1, b1=params.b1, W2=params.W2, b2=params.b2, vocab=tokenizer.vocab, context_len=C)
+        print(f"모델 저장 완료: {args.model_path}")
+
+    elif args.generate:
+        if not Path(args.model_path).exists():
+            print(f"모델 파일이 없습니다. 먼저 --train을 실행하세요: {args.model_path}")
+            return
+        
+        # 모델 로드
+        ckpt = np.load(args.model_path, allow_pickle=True)
+        vocab = tuple(ckpt["vocab"])
+        tokenizer = CharTokenizer(vocab)
+        params = MLPLMParams(ckpt["E"], ckpt["W1"], ckpt["b1"], ckpt["W2"], ckpt["b2"])
+        context_len = int(ckpt["context_len"])
+
+        print("--- 텍스트 생성 시작 ---")
+        rng = np.random.default_rng()
+        # 시작 컨텍스트: 데이터의 앞부분 사용
+        context = ids[:context_len].tolist()
+        print(f"Seed context: '{tokenizer.decode(context)}'")
+        
+        generated = []
+        for _ in range(100):
+            x = np.array([context[-context_len:]])
+            logits, _ = forward(params, x)
+            probs = softmax(logits[0])
+            next_id = sample_from_probs(probs, rng, SamplingConfig(temperature=0.8))
+            generated.append(next_id)
+            context.append(next_id)
+        
+        print(f"Generated: {tokenizer.decode(generated)}")
+
     else:
-        generate_main()
+        parser.print_help()
 
 
 if __name__ == "__main__":

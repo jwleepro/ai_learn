@@ -20,11 +20,10 @@
 
 아래 두 명령을 실행하고, 생성 텍스트의 차이를 관찰하세요.
 
-> 소스: [`generate_bigram.py`](code/generate_bigram.py)
-> 소스: [`generate_bigram.py`](code/generate_bigram.py)
+> 소스: [`week1_complete.py`](code/week1_complete.py)
 ```powershell
-python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --seed 0 --smoothing 0
-python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --seed 0 --smoothing 1
+python code/week1_complete.py --generate --data data/tiny_corpus_ko.txt --smooth 0
+python code/week1_complete.py --generate --data data/tiny_corpus_ko.txt --smooth 1
 ```
 
 질문:
@@ -38,13 +37,11 @@ python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --se
 
 아래를 각각 실행하고, 결과를 비교하세요.
 
-> 소스: [`generate_bigram.py`](code/generate_bigram.py)
-> 소스: [`generate_bigram.py`](code/generate_bigram.py)
-> 소스: [`generate_bigram.py`](code/generate_bigram.py)
+> 소스: [`week1_complete.py`](code/week1_complete.py)
 ```powershell
-python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 0.7
-python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 1.0
-python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --seed 1 --temperature 1.3
+python code/week1_complete.py --generate --data data/tiny_corpus_ko.txt --temp 0.7
+python code/week1_complete.py --generate --data data/tiny_corpus_ko.txt --temp 1.0
+python code/week1_complete.py --generate --data data/tiny_corpus_ko.txt --temp 1.3
 ```
 
 질문:
@@ -65,9 +62,9 @@ python code/generate_bigram.py --input data/tiny_corpus_ko.txt --length 300 --se
 
 특정 글자 뒤에 어떤 글자가 잘 나오는지 확인해보세요:
 
-> 소스: [`inspect_bigrams.py`](code/inspect_bigrams.py)
+> 소스: [`week1_complete.py`](code/week1_complete.py)
 ```powershell
-python code/inspect_bigrams.py --input data/tiny_corpus_ko.txt --char_u 0xB2E4 --top 10
+python code/week1_complete.py --inspect --char "다" --data data/tiny_corpus_ko.txt
 ```
 
 질문:

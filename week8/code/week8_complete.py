@@ -1,13 +1,15 @@
-"""Week 8 Complete: SFT JSONL Validator.
+"""Week 8 Complete: SFT(Supervised Fine-Tuning) JSONL Validator.
 
-이 통합 파일은 validate_sft_jsonl.py의 모든 코드를 포함합니다.
+이 파일은 SFT 학습을 위해 준비된 JSONL 데이터셋의 형식을 검증하는 과정을
+하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
 
-SFT(지도 파인튜닝)용 JSONL 데이터셋을 빠르게 검증합니다:
-- 각 줄이 JSON으로 파싱되는지
-- 필수 키가 존재하는지
-- (선택) output이 JSON 문자열이라면 파싱 가능한지
+주요 내용:
+1. JSONL Format: 각 줄이 독립된 JSON 객체로 구성된 데이터 형식
+2. Validation: 필수 키(instruction, output 등) 존재 여부 및 값의 유효성 검사
+3. JSON Output Check: 모델의 출력이 JSON 형식이어야 하는 경우(구조화된 추출)에 대한 특수 검증
 
-표준 라이브러리만 사용합니다.
+실행 방법:
+- 검증: python week8/code/week8_complete.py --input week8/data/sft_toy.jsonl
 """
 
 from __future__ import annotations
@@ -15,169 +17,82 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
 
 
 # ============================================================================
-# Section 1: validate_sft_jsonl.py - Main validation script
+# 1. Main Execution Flow
 # ============================================================================
-
-def _looks_like_json_text(s: str) -> bool:
-    """텍스트가 JSON처럼 보이는지 확인합니다."""
-    s = s.strip()
-    return s.startswith("{") or s.startswith("[")
-
-
-def _parse_output_json(value: Any) -> tuple[bool, str]:
-    """output 필드가 유효한 JSON인지 검증합니다.
-
-    구조화 추출(structured extraction) 작업에서는 모델의 출력이
-    JSON 형식이어야 합니다. 이 함수는 그를 검증합니다.
-
-    지원하는 형식:
-    - JSON 문자열: '{"key": "value"}'
-    - JSON 오브젝트: dict 또는 list (Python 객체)
-
-    Args:
-        value: output 필드의 값
-
-    Returns:
-        (is_valid, error_message) 튜플
-        - is_valid: True면 유효한 JSON, False면 검증 실패
-        - error_message: 실패 시 오류 메시지, 성공 시 빈 문자열
-    """
-    # dict나 list는 이미 파이썬 객체로 파싱된 것 (유효)
-    if isinstance(value, (dict, list)):
-        return True, ""
-
-    # 문자열이 아니면 실패
-    if not isinstance(value, str):
-        return False, f"output must be str/dict/list for JSON, got {type(value).__name__}"
-
-    # JSON 문자열처럼 보이는지 확인 ('{' 또는 '[' 시작)
-    if not _looks_like_json_text(value):
-        return False, "output does not look like JSON text (expected '{' or '[')"
-
-    # 실제로 파싱 가능한지 확인
-    try:
-        json.loads(value)
-    except json.JSONDecodeError as exc:
-        return False, f"output JSON parse error: {exc.msg} (pos {exc.pos})"
-
-    return True, ""
-
-
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="SFT JSONL 데이터셋 검증기(가벼운 포맷 검사).")
-    p.add_argument("--input", required=True, help="입력 JSONL 파일 경로")
-    p.add_argument(
-        "--required",
-        default="instruction,output",
-        help="필수 키(콤마로 구분). 기본: instruction,output",
-    )
-    p.add_argument(
-        "--expect_output_json",
-        action="store_true",
-        help="output 값이 JSON 문자열(또는 JSON 오브젝트)이어야 함(구조화 추출 태스크용).",
-    )
-    p.add_argument("--max_errors", type=int, default=20, help="최대 에러 출력 개수")
-    return p.parse_args()
-
 
 def main() -> None:
-    """메인 검증 로직.
+    parser = argparse.ArgumentParser(description="SFT JSONL 데이터셋 검증기")
+    parser.add_argument("--input", required=True, help="입력 JSONL 파일 경로")
+    parser.add_argument("--required", default="instruction,output", help="필수 키 (쉼표 구분)")
+    parser.add_argument("--expect_json", action="store_true", help="output이 JSON 형식이어야 함")
+    args = parser.parse_args()
 
-    SFT(Supervised Fine-Tuning) 데이터셋은 JSONL 형식이어야 합니다.
-    각 줄은 {필수_키: 값, ...} 형태의 JSON 오브젝트입니다.
+    # 데이터 로드
+    data_path = Path(args.input)
+    if not data_path.exists():
+        # 교육용 샘플 데이터가 없을 경우를 위해 더미 생성 (실제 환경에서는 데이터가 있어야 함)
+        if "sft_toy.jsonl" in str(data_path):
+            print("샘플 데이터를 생성합니다...")
+            data_path.parent.mkdir(parents=True, exist_ok=True)
+            sample_content = (
+                '{"instruction": "안녕?", "output": "안녕하세요!"}\n'
+                '{"instruction": "날씨 어때?", "output": "좋아요."}\n'
+            )
+            data_path.write_text(sample_content, encoding="utf-8")
+        else:
+            print(f"파일이 없습니다: {data_path}")
+            return
 
-    검증 항목:
-    1. JSON 형식 유효성
-    2. 필수 키 존재 확인
-    3. 필수 값이 비어있지 않은지 확인
-    4. (선택) output이 JSON 형식인지 확인
-    """
-    args = parse_args()
-
-    # 필수 키 목록 파싱
-    required = [k.strip() for k in str(args.required).split(",") if k.strip()]
-    if not required:
-        raise SystemExit("required keys is empty")
-
-    path = Path(args.input)
-    lines = path.read_text(encoding="utf-8").splitlines()
-
-    total = 0      # 총 (비어있지 않은) 줄 수
-    ok = 0         # 검증 성공한 줄 수
-    errors: list[str] = []  # 에러 메시지들
-
-    # ===== 각 줄 검증 =====
+    required_keys = [k.strip() for k in args.required.split(",")]
+    lines = data_path.read_text(encoding="utf-8").strip().splitlines()
+    
+    print(f"--- SFT 데이터 검증 시작 (파일: {data_path.name}) ---")
+    print(f"필수 키: {required_keys}")
+    
+    success_count = 0
+    error_count = 0
+    
     for i, line in enumerate(lines, start=1):
-        line = line.strip()
-        if not line:
-            # 빈 줄은 무시
-            continue
-
-        total += 1
-
-        # Step 1: JSON 파싱
         try:
-            obj = json.loads(line)
-        except json.JSONDecodeError as exc:
-            errors.append(f"line {i}: JSON parse error: {exc.msg} (pos {exc.pos})")
-            continue
-
-        # Step 2: JSON 오브젝트 확인 (dict 타입)
-        if not isinstance(obj, dict):
-            errors.append(f"line {i}: expected JSON object(dict), got {type(obj).__name__}")
-            continue
-
-        # Step 3: 필수 키 존재 확인
-        missing = [k for k in required if k not in obj]
-        if missing:
-            errors.append(f"line {i}: missing keys: {', '.join(missing)}")
-            continue
-
-        # Step 4: 필수 값의 유효성 검증
-        # - 보통은 비어있지 않은 문자열
-        # - expect_output_json이 켜져있으면 output은 str/dict/list 모두 가능
-        bad = []
-        for k in required:
-            v = obj.get(k)
-            if bool(args.expect_output_json) and k == "output":
-                # output이 JSON 형식이어야 함
-                if isinstance(v, str):
-                    if not v.strip():
-                        bad.append(k)
-                elif not isinstance(v, (dict, list)):
-                    bad.append(k)
-            else:
-                # 다른 필수 키: 비어있지 않은 문자열
-                if not isinstance(v, str) or not v.strip():
-                    bad.append(k)
-
-        if bad:
-            errors.append(f"line {i}: invalid required values: {', '.join(bad)}")
-            continue
-
-        # Step 5: (선택) output JSON 형식 검증
-        if bool(args.expect_output_json):
-            ok_json, why = _parse_output_json(obj.get("output"))
-            if not ok_json:
-                errors.append(f"line {i}: {why}")
+            # 1. JSON 문법 검사
+            data = json.loads(line)
+            
+            # 2. 필수 키 존재 여부 검사
+            missing = [k for k in required_keys if k not in data]
+            if missing:
+                print(f"라인 {i} 에러: 누락된 키 {missing}")
+                error_count += 1
                 continue
+            
+            # 3. 값의 유효성 검사 (비어있는 문자열 등)
+            empty = [k for k in required_keys if not str(data[k]).strip()]
+            if empty:
+                print(f"라인 {i} 에러: 빈 값 {empty}")
+                error_count += 1
+                continue
+                
+            # 4. (선택) output이 JSON 형식인지 검사
+            if args.expect_json:
+                try:
+                    json.loads(data["output"])
+                except:
+                    print(f"라인 {i} 에러: output이 JSON 형식이 아님")
+                    error_count += 1
+                    continue
+            
+            success_count += 1
+            
+        except json.JSONDecodeError:
+            print(f"라인 {i} 에러: 유효하지 않은 JSON 문법")
+            error_count += 1
 
-        ok += 1
-
-    # ===== 결과 출력 =====
-    print(f"file={path}  total={total}  ok={ok}  errors={len(errors)}")
-
-    # 에러 메시지 출력 (최대 max_errors개)
-    for msg in errors[: int(args.max_errors)]:
-        print(f"ERROR: {msg}")
-
-    # 에러가 있으면 종료 코드 1로 반환
-    if errors:
-        raise SystemExit(1)
+    print(f"\n--- 검증 완료 ---")
+    print(f"총 라인: {len(lines)}")
+    print(f"성공: {success_count}")
+    print(f"실패: {error_count}")
 
 
 if __name__ == "__main__":

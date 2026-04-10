@@ -1,69 +1,40 @@
-# Week 3 과제 (Core / numpy): MLP LM
+# Week 3 과제 (Core / numpy)
 
-> 관련 레슨: [05_mlp_context_lm — MLP 언어모델](lessons/05_mlp_context_lm.md)
+> 관련 레슨: [05_mlp_context_lm](lessons/05_mlp_context_lm.md)
 
-목표: 컨텍스트 길이 `k`를 늘려보며, “문맥을 본다”가 모델 품질에 어떤 영향을 주는지 경험합니다.
+목표: 단일 글자가 아닌 **여러 글자(context)**를 보고 다음 글자를 예측하는 MLP 모델을 구현하고 학습시킵니다.
 
 ---
 
-## 0) 학습 실행(기본)
+## 과제 1) MLP 언어모델 학습하기
 
-> 소스: [`train_mlp_lm.py`](code/train_mlp_lm.py)
+아래 명령을 실행하여 모델을 학습시키세요. 컨텍스트 길이($C$), 임베딩 차원($D$), 은닉층 크기($H$) 등이 결과에 미치는 영향을 확인합니다.
+
+> 소스: [`week3_complete.py`](code/week3_complete.py)
 ```powershell
-python code/train_mlp_lm.py --input data/tiny_corpus_ko.txt --context 8 --embed 32 --hidden 128 --epochs 60 --lr 0.2
-```
-
-저장:
-
-- `llm_from_scratch/models/mlp_lm.npz`
-
-생성:
-
-> 소스: [`generate_mlp_lm.py`](code/generate_mlp_lm.py)
-```powershell
-python code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --length 300 --seed 0 --temperature 1.0
+python code/week3_complete.py --train --data data/tiny_corpus_ko.txt
 ```
 
 ---
 
-## 1) 실험 1: 컨텍스트 길이 바꾸기
+## 과제 2) 학습된 모델로 생성하기
 
-아래 3개를 학습/생성해서 비교해보세요.
+학습된 모델(`mlp_model.npz`)을 사용하여 텍스트를 생성해보세요.
 
-- `--context 2`
-- `--context 8`
-- `--context 16`
+> 소스: [`week3_complete.py`](code/week3_complete.py)
+```powershell
+python code/week3_complete.py --generate
+```
 
 질문:
-
-- “더 문장 같아졌다”가 느껴지나요?
-- 반복/깨짐/랜덤함은 어떻게 바뀌나요?
+1. 빅램 모델(Week 1, 2)과 비교했을 때, 문장이 더 자연스러워졌나요?
+2. 특정 단어나 조사가 반복되는 현상이 있나요?
 
 ---
 
-## 2) 실험 2: 모델 크기 바꾸기
+## (선택) 과제 3) 하이퍼파라미터 변경
 
-고정: `--context 8`, 나머지를 바꿉니다.
-
-- 작은 모델: `--embed 16 --hidden 64`
-- 큰 모델: `--embed 64 --hidden 256`
-
-질문:
-
-- train loss / val loss가 어떻게 달라지나요?
-- 큰 모델이 val에서 더 나빠지는(과적합) 신호가 보이나요?
-
----
-
-## 3) 내 코퍼스로 학습(권장)
-
-`data/my_corpus.txt`로 바꿔서:
-
-- 카운트 빅램
-- 신경망 빅램
-- MLP LM
-
-3개를 모두 생성 비교해보세요.
+`week3_complete.py` 코드 내의 `C`(컨텍스트 길이)를 16으로 늘리거나, `D`(임베딩 차원)를 64로 늘려보고 다시 학습시켰을 때 loss가 어떻게 변하는지 관찰하세요.
 
 ---
 
@@ -72,4 +43,3 @@ python code/generate_mlp_lm.py --model llm_from_scratch/models/mlp_lm.npz --leng
 ```powershell
 python -m unittest discover -s llm_from_scratch/tests -p "test_core_week3.py" -v
 ```
-

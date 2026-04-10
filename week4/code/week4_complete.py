@@ -1,206 +1,151 @@
 """Week 4 Complete: Self-Attention (Single Head).
 
-이 통합 파일은 attention_numpy.py와 demo_self_attention.py의
-모든 코드를 포함합니다.
+이 파일은 Self-Attention 메커니즘의 핵심 계산 과정을 하나의 파일로 통합한 교육용 코드입니다.
+데이터 로드부터 토큰화, 어텐션 가중치 계산 및 시각화 데모까지 순서대로 진행됩니다.
 
-(단일 헤드) Self-attention 계산 블록을 numpy로 구현합니다.
+주요 내용:
+1. CharTokenizer: 글자 단위 토크나이저
+2. Causal Masking: 미래 토큰을 가리는 기법
+3. Self-Attention: Query, Key, Value를 이용한 어텐션 점수 및 출력 계산
+4. Visualization: 특정 위치에서 어떤 토큰을 중요하게 보는지(Attention weights) 출력
 
-Shapes:
-- X: (T, D)
-- Wq/Wk/Wv: (D, Dh)
-- weights: (T, T)
-- out: (T, Dh)
+실행 방법:
+- 데모: python week4/code/week4_complete.py --input week4/data/tiny_corpus_ko.txt
 """
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
-
 import numpy as np
 
-from tokenizer_char import CharTokenizer
-
 
 # ============================================================================
-# Inline: softmax function (from softmax.py)
+# 1. Utility Functions & Classes
 # ============================================================================
 
-def softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
-    """점수(logits)를 확률로 바꾸는 함수입니다.
+@dataclass
+class CharTokenizer:
+    """글자 단위 토크나이저."""
+    vocab: tuple[str, ...]
 
-    큰 수를 먼저 빼서(max-shift) 계산이 터지지 않게 합니다.
-    """
-    if logits.size == 0:
-        raise ValueError("logits must not be empty")
+    def __post_init__(self) -> None:
+        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+
+    @property
+    def vocab_size(self) -> int: return len(self.vocab)
+
+    @classmethod
+    def from_text(cls, text: str) -> CharTokenizer:
+        return cls(tuple(sorted(set(text))))
+
+    def encode(self, text: str) -> list[int]:
+        return [self.char_to_id[ch] for ch in text]
+
+    def decode(self, ids: list[int]) -> str:
+        return "".join(self.vocab[i] for i in ids)
+
+
+def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
 # ============================================================================
-# Section 1: attention_numpy.py - Self-Attention Core
+# 2. Self-Attention Implementation
 # ============================================================================
 
 def causal_mask(scores: np.ndarray) -> np.ndarray:
-    """
-    Causal Masking: 미래 토큰 정보를 보이지 않게 마스킹
-
-    배경:
-    - 언어모델은 좌에서 우로(left-to-right) 생성: 이전 토큰들만 봐서 다음 토큰 예측
-    - Attention은 모든 토큰 쌍을 고려하므로, "미래 토큰을 보는" 문제 발생
-    - 해결: 미래 위치의 점수를 매우 낮은 값(-1e9)으로 설정
-
-    Args:
-        scores: shape (T, T) - 어텐션 점수 (T = 시퀀스 길이)
-
-    Returns:
-        masked: shape (T, T) - 미래 부분이 -1e9로 마스킹된 scores
-    """
-    if scores.ndim != 2 or scores.shape[0] != scores.shape[1]:
-        raise ValueError("scores must be (T, T)")
+    """미래 토큰 정보를 보이지 않게 -1e9(매우 낮은 값)로 마스킹합니다."""
     T = scores.shape[0]
+    mask = np.triu(np.ones((T, T)), k=1).astype(bool)
     masked = scores.copy()
-    upper = np.triu(np.ones((T, T), dtype=bool), k=1)
-    masked[upper] = -1e9
+    masked[mask] = -1e9
     return masked
 
 
-def self_attention(
-    X: np.ndarray,
-    Wq: np.ndarray,
-    Wk: np.ndarray,
-    Wv: np.ndarray,
-    *,
-    causal: bool = True,
-) -> tuple[np.ndarray, np.ndarray]:
+def self_attention(X: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, causal: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """
-    Self-Attention 계산: 각 토큰이 다른 토큰들을 얼마나 "주목"할지 결정합니다
-
-    Self-Attention의 3가지 구성요소:
-    1. Query (Q): "이 위치에서 뭘 찾고 있는가?"
-    2. Key (K): "이 위치가 제공할 수 있는 것은?"
-    3. Value (V): "실제 정보"
-
-    계산 단계:
-    1. X를 Q, K, V로 투영 (각각 다른 측면을 학습)
-    2. Q와 K의 내적으로 유사도 점수 계산 (scaled dot-product)
-    3. 점수를 softmax로 확률로 변환 → 어텐션 가중치
-    4. 가중치로 V를 조합 → 최종 출력
-
-    수학:
-    Attention(Q, K, V) = softmax(Q @ K^T / sqrt(d_h)) @ V
-
-    Args:
-        X: shape (T, D) - 입력 시퀀스 (T = 길이, D = 특성 차원)
-        Wq, Wk, Wv: shape (D, Dh) - 학습 가능한 투영 행렬 (Dh = 어텐션 차원)
-        causal: True면 인과적 마스킹 적용 (미래 토큰 무시)
-
-    Returns:
-        weights: shape (T, T) - 어텐션 가중치
-        out: shape (T, Dh) - 최종 어텐션 출력
+    Query, Key, Value를 이용한 Self-Attention 계산
+    X: (T, D), W: (D, Dh) -> Weights: (T, T), Output: (T, Dh)
     """
-    if X.ndim != 2:
-        raise ValueError("X must be 2D (T, D)")
-    if Wq.shape[0] != X.shape[1] or Wk.shape[0] != X.shape[1] or Wv.shape[0] != X.shape[1]:
-        raise ValueError("Wq/Wk/Wv first dim must match X feature dim")
-
-    Q = X @ Wq
-    K = X @ Wk
-    V = X @ Wv
-
+    Q = X @ Wq # (T, Dh)
+    K = X @ Wk # (T, Dh)
+    V = X @ Wv # (T, Dh)
+    
     Dh = Q.shape[1]
-    scores = (Q @ K.T) / np.sqrt(float(Dh))
-
+    # Dot-product 유사도 계산 및 스케일링
+    scores = (Q @ K.T) / np.sqrt(Dh)
+    
     if causal:
         scores = causal_mask(scores)
-
+    
+    # Softmax를 통해 가중치(확률)로 변환
     weights = softmax(scores, axis=1)
+    # 가중치와 Value의 결합
     out = weights @ V
-
+    
     return weights, out
 
 
 # ============================================================================
-# Section 2: demo_self_attention.py - Demo script
+# 3. Main Execution Flow
 # ============================================================================
 
-def token_label(vocab: tuple[str, ...], token_id: int) -> str:
-    ch = vocab[token_id]
-    code = ord(ch)
-    if ch == "\n":
-        shown = "\\n"
-    elif ch == "\t":
-        shown = "\\t"
-    elif ch == " ":
-        shown = "<space>"
-    else:
-        shown = ch
-    return f"{shown}(U+{code:04X},id={token_id})"
-
-
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="(학습 아님) self-attention weights 출력 데모(numpy).")
-    p.add_argument("--input", required=True, help="입력 UTF-8 텍스트 파일 경로")
-    p.add_argument("--tokens", type=int, default=24, help="앞에서부터 볼 토큰 수(T)")
-    p.add_argument("--d_model", type=int, default=16, help="임베딩 차원(d_model)")
-    p.add_argument("--d_head", type=int, default=16, help="헤드 차원(d_head)")
-    p.add_argument("--seed", type=int, default=0, help="난수 시드(seed)")
-    p.add_argument("--no_causal", action="store_true", help="causal mask 끄기(미래 토큰을 볼 수 있음)")
-    p.add_argument("--pos", type=int, default=-1, help="설명할 위치(pos). 기본은 마지막(-1).")
-    p.add_argument("--top", type=int, default=8, help="가장 크게 보는 위치 top-N 출력")
-    p.add_argument("--matrix", action="store_true", help="전체 weights 행렬 출력(T가 작을 때만)")
-    return p.parse_args()
-
-
 def main() -> None:
-    args = parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True, help="입력 텍스트 파일 경로")
+    parser.add_argument("--tokens", type=int, default=20, help="분석할 토큰 수")
+    parser.add_argument("--pos", type=int, default=-1, help="분석할 특정 위치 (기본: 마지막)")
+    parser.add_argument("--no_causal", action="store_true", help="Causal Masking 비활성화")
+    args = parser.parse_args()
 
-    text = Path(args.input).read_text(encoding="utf-8")
-    if not text:
-        raise ValueError("Input text is empty")
+    # 데이터 로드
+    data_path = Path(args.input)
+    if not data_path.exists():
+        print(f"데이터 파일이 없습니다: {data_path}")
+        return
+    text = data_path.read_text(encoding="utf-8")
+    
+    # 1. 토크나이저 및 임베딩 준비 (데모를 위해 랜덤 임베딩 사용)
+    tokenizer = CharTokenizer.from_text(text)
+    full_ids = tokenizer.encode(text)
+    T = min(args.tokens, len(full_ids))
+    ids = full_ids[:T]
+    
+    D = 16  # Embedding dimension
+    Dh = 16 # Head dimension
+    rng = np.random.default_rng(42)
+    
+    # 가상의 임베딩 테이블 및 투영 행렬
+    E = rng.normal(0, 0.1, (tokenizer.vocab_size, D))
+    X = E[ids] # (T, D)
+    
+    Wq = rng.normal(0, 0.1, (D, Dh))
+    Wk = rng.normal(0, 0.1, (D, Dh))
+    Wv = rng.normal(0, 0.1, (D, Dh))
 
-    tok = CharTokenizer.from_text(text)
-    ids = tok.encode(text)
-    T = min(int(args.tokens), len(ids))
-    ids = ids[:T]
-
-    rng = np.random.default_rng(int(args.seed))
-    E = rng.normal(0.0, 0.5, size=(tok.vocab_size, int(args.d_model))).astype(np.float64)
-    X = E[np.array(ids, dtype=np.int64)]
-
-    Wq = rng.normal(0.0, 0.5, size=(int(args.d_model), int(args.d_head))).astype(np.float64)
-    Wk = rng.normal(0.0, 0.5, size=(int(args.d_model), int(args.d_head))).astype(np.float64)
-    Wv = rng.normal(0.0, 0.5, size=(int(args.d_model), int(args.d_head))).astype(np.float64)
-
-    causal = not bool(args.no_causal)
-    weights, _ = self_attention(X, Wq, Wk, Wv, causal=causal)
-
-    pos = int(args.pos) if int(args.pos) >= 0 else T - 1
-    if not (0 <= pos < T):
-        raise ValueError("--pos out of range for selected tokens")
-
+    # 2. Self-Attention 계산
+    causal = not args.no_causal
+    weights, out = self_attention(X, Wq, Wk, Wv, causal=causal)
+    
+    # 3. 결과 출력
+    pos = args.pos if args.pos >= 0 else T - 1
+    print(f"--- Self-Attention Demo (T={T}, Causal={causal}) ---")
+    print(f"분석 위치 [{pos}]: '{tokenizer.decode([ids[pos]])}'")
+    
+    print("\nAttention 가중치 (상위 5개):")
     row = weights[pos]
-    top_n = min(int(args.top), T)
-    top_idx = np.argsort(row)[-top_n:][::-1]
+    top_indices = np.argsort(row)[::-1][:5]
+    for idx in top_indices:
+        target_char = tokenizer.decode([ids[idx]])
+        print(f"  to [{idx:2d}] '{target_char}': {row[idx]:.4f}")
 
-    print(f"T={T}  causal={causal}  pos={pos}")
-    print("context tokens:")
-    for i, token_id in enumerate(ids):
-        print(f"  [{i:02d}] {token_label(tok.vocab, token_id)}")
-
-    print("")
-    print(f"Top attends for position {pos}:")
-    for j in top_idx:
-        print(f"  to [{int(j):02d}] w={float(row[int(j)]):.4f}")
-
-    if args.matrix:
-        if T > 32:
-            raise ValueError("--matrix is only allowed for T<=32 to keep output readable")
-        print("")
-        print("Attention weights matrix (rows=from, cols=to):")
-        with np.printoptions(precision=3, suppress=True, linewidth=200):
-            print(weights)
+    print("\n[전체 문맥]")
+    print(f"'{tokenizer.decode(ids)}'")
 
 
 if __name__ == "__main__":

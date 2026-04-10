@@ -1,17 +1,17 @@
-"""Week 5 Complete: Transformer Forward Pass (numpy, no training).
+"""Week 5 Complete: Transformer Forward Pass.
 
-이 통합 파일은 transformer_numpy.py와 demo_transformer_forward.py의
-모든 코드를 포함합니다.
+이 파일은 트랜스포머(Transformer) 모델의 핵심 구조와 Forward Pass 과정을
+하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
 
-Transformer의 forward 계산을 numpy로 구현한 데모용 코드입니다.
-(가중치는 랜덤 초기화이며, 학습/역전파는 다루지 않습니다)
+주요 내용:
+1. CharTokenizer: 글자 단위 토크나이저
+2. Multi-Head Attention (MHA): 병렬 어텐션 계산
+3. Feed-Forward Network (FFN): 비선형 변환 층
+4. Transformer Block: MHA와 FFN을 결합한 기본 단위 (Residual & LayerNorm 포함)
+5. Forward Pass: 입력 토큰으로부터 최종 예측 점수(Logits)까지의 전체 경로
 
-주요 컴포넌트:
-- Multi-Head Attention (MHA)
-- Feed-Forward Network (FFN)
-- Layer Normalization
-- Residual connections
-- 위치 임베딩
+실행 방법:
+- 데모: python week5/code/week5_complete.py --input week5/data/tiny_corpus_ko.txt
 """
 
 from __future__ import annotations
@@ -19,244 +19,165 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-
 import numpy as np
 
-from tokenizer_char import CharTokenizer
-
 
 # ============================================================================
-# Inline: softmax function (from softmax.py)
+# 1. Utility Functions & Classes
 # ============================================================================
 
-def softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
-    """점수(logits)를 확률로 바꾸는 함수입니다.
+@dataclass
+class CharTokenizer:
+    """글자 단위 토크나이저."""
+    vocab: tuple[str, ...]
 
-    큰 수를 먼저 빼서(max-shift) 계산이 터지지 않게 합니다.
-    """
-    if logits.size == 0:
-        raise ValueError("logits must not be empty")
+    def __post_init__(self) -> None:
+        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+
+    @property
+    def vocab_size(self) -> int: return len(self.vocab)
+
+    @classmethod
+    def from_text(cls, text: str) -> CharTokenizer:
+        return cls(tuple(sorted(set(text))))
+
+    def encode(self, text: str) -> list[int]:
+        return [self.char_to_id[ch] for ch in text]
+
+    def decode(self, ids: list[int]) -> str:
+        return "".join(self.vocab[i] for i in ids)
+
+
+def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
-# ============================================================================
-# Section 2: transformer_numpy.py - Transformer Core
-# ============================================================================
-
-@dataclass(frozen=True)
-class TransformerConfig:
-    vocab_size: int
-    max_seq_len: int = 64
-    d_model: int = 64
-    n_heads: int = 4
-    d_ff: int = 256
-    n_layers: int = 2
-    seed: int = 0
-
-
-@dataclass
-class TransformerLayerParams:
-    ln1_g: np.ndarray
-    ln1_b: np.ndarray
-    Wq: np.ndarray
-    Wk: np.ndarray
-    Wv: np.ndarray
-    Wo: np.ndarray
-    ln2_g: np.ndarray
-    ln2_b: np.ndarray
-    W1: np.ndarray
-    b1: np.ndarray
-    W2: np.ndarray
-    b2: np.ndarray
-
-
-@dataclass
-class TransformerParams:
-    tok_emb: np.ndarray
-    pos_emb: np.ndarray
-    layers: list[TransformerLayerParams]
-    ln_f_g: np.ndarray
-    ln_f_b: np.ndarray
-    W_out: np.ndarray
-    b_out: np.ndarray
-
-
-def layer_norm(x: np.ndarray, g: np.ndarray, b: np.ndarray, *, eps: float = 1e-5) -> np.ndarray:
-    """Layer Normalization을 적용합니다."""
+def layer_norm(x: np.ndarray, g: np.ndarray, b: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+    """Layer Normalization: 각 샘플(행)의 평균과 분산을 이용해 정규화합니다."""
     mean = x.mean(axis=-1, keepdims=True)
-    var = ((x - mean) ** 2).mean(axis=-1, keepdims=True)
+    var = x.var(axis=-1, keepdims=True)
     x_hat = (x - mean) / np.sqrt(var + eps)
-    return x_hat * g + b
+    return g * x_hat + b
 
 
-def init_params(cfg: TransformerConfig) -> TransformerParams:
-    """Transformer 파라미터를 초기화합니다."""
-    if cfg.vocab_size <= 0:
-        raise ValueError("vocab_size must be > 0")
-    if cfg.d_model % cfg.n_heads != 0:
-        raise ValueError("d_model must be divisible by n_heads")
+# ============================================================================
+# 2. Transformer Components Implementation
+# ============================================================================
 
-    rng = np.random.default_rng(cfg.seed)
-    scale = 0.02
-
-    tok_emb = rng.normal(0.0, scale, size=(cfg.vocab_size, cfg.d_model)).astype(np.float64)
-    pos_emb = rng.normal(0.0, scale, size=(cfg.max_seq_len, cfg.d_model)).astype(np.float64)
-
-    layers: list[TransformerLayerParams] = []
-    for _ in range(cfg.n_layers):
-        ln1_g = np.ones((cfg.d_model,), dtype=np.float64)
-        ln1_b = np.zeros((cfg.d_model,), dtype=np.float64)
-        Wq = rng.normal(0.0, scale, size=(cfg.d_model, cfg.d_model)).astype(np.float64)
-        Wk = rng.normal(0.0, scale, size=(cfg.d_model, cfg.d_model)).astype(np.float64)
-        Wv = rng.normal(0.0, scale, size=(cfg.d_model, cfg.d_model)).astype(np.float64)
-        Wo = rng.normal(0.0, scale, size=(cfg.d_model, cfg.d_model)).astype(np.float64)
-        ln2_g = np.ones((cfg.d_model,), dtype=np.float64)
-        ln2_b = np.zeros((cfg.d_model,), dtype=np.float64)
-        W1 = rng.normal(0.0, scale, size=(cfg.d_model, cfg.d_ff)).astype(np.float64)
-        b1 = np.zeros((cfg.d_ff,), dtype=np.float64)
-        W2 = rng.normal(0.0, scale, size=(cfg.d_ff, cfg.d_model)).astype(np.float64)
-        b2 = np.zeros((cfg.d_model,), dtype=np.float64)
-        layers.append(
-            TransformerLayerParams(
-                ln1_g=ln1_g, ln1_b=ln1_b, Wq=Wq, Wk=Wk, Wv=Wv, Wo=Wo,
-                ln2_g=ln2_g, ln2_b=ln2_b, W1=W1, b1=b1, W2=W2, b2=b2,
-            )
-        )
-
-    ln_f_g = np.ones((cfg.d_model,), dtype=np.float64)
-    ln_f_b = np.zeros((cfg.d_model,), dtype=np.float64)
-    W_out = rng.normal(0.0, scale, size=(cfg.d_model, cfg.vocab_size)).astype(np.float64)
-    b_out = np.zeros((cfg.vocab_size,), dtype=np.float64)
-    return TransformerParams(tok_emb=tok_emb, pos_emb=pos_emb, layers=layers, ln_f_g=ln_f_g, ln_f_b=ln_f_b, W_out=W_out, b_out=b_out)
-
-
-def mha(x: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, Wo: np.ndarray, *, n_heads: int, causal: bool) -> tuple[np.ndarray, np.ndarray]:
-    """Multi-Head Attention (MHA) Forward 계산."""
+def multi_head_attention(x: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, Wo: np.ndarray, n_heads: int) -> np.ndarray:
+    """Multi-Head Attention: 입력을 여러 헤드로 나누어 어텐션을 병렬로 계산합니다."""
     T, D = x.shape
-    Dh = D // n_heads
-
+    Dh = D // n_heads # Head dimension
+    
+    # Q, K, V 투영 및 헤드 분리
+    # (T, D) @ (D, D) -> (T, D) -> (T, n_heads, Dh) -> (n_heads, T, Dh)
     Q = (x @ Wq).reshape(T, n_heads, Dh).transpose(1, 0, 2)
     K = (x @ Wk).reshape(T, n_heads, Dh).transpose(1, 0, 2)
     V = (x @ Wv).reshape(T, n_heads, Dh).transpose(1, 0, 2)
-
-    scores = (Q @ K.transpose(0, 2, 1)) / np.sqrt(float(Dh))
-
-    if causal:
-        mask = np.triu(np.ones((T, T), dtype=bool), k=1)
-        scores = scores.copy()
-        scores[:, mask] = -1e9
-
+    
+    # Scaled Dot-Product Attention
+    scores = (Q @ K.transpose(0, 2, 1)) / np.sqrt(Dh)
+    
+    # Causal Masking
+    mask = np.triu(np.ones((T, T)), k=1).astype(bool)
+    scores[:, mask] = -1e9
+    
     weights = softmax(scores, axis=-1)
-    out = weights @ V
+    attn_out = weights @ V # (n_heads, T, Dh)
+    
+    # 헤드 결합 및 최종 투영
+    # (n_heads, T, Dh) -> (T, n_heads, Dh) -> (T, D)
+    combined = attn_out.transpose(1, 0, 2).reshape(T, D)
+    return combined @ Wo
 
-    out = out.transpose(1, 0, 2).reshape(T, D)
-    out = out @ Wo
 
-    return out, weights
-
-
-def ffn(x: np.ndarray, W1: np.ndarray, b1: np.ndarray, W2: np.ndarray, b2: np.ndarray) -> np.ndarray:
-    """Feed-Forward Network (FFN) Forward 계산."""
-    h = x @ W1 + b1
-    h = np.maximum(h, 0.0)
+def feed_forward(x: np.ndarray, W1: np.ndarray, b1: np.ndarray, W2: np.ndarray, b2: np.ndarray) -> np.ndarray:
+    """Position-wise Feed-Forward Network: 각 위치마다 독립적으로 적용되는 2층 신경망입니다."""
+    h = np.maximum(0, x @ W1 + b1) # ReLU activation
     return h @ W2 + b2
 
 
-def forward(params: TransformerParams, token_ids: np.ndarray, *, n_heads: int, causal: bool = True) -> tuple[np.ndarray, list[np.ndarray]]:
-    """Transformer Forward Pass를 수행합니다."""
-    if token_ids.ndim != 1:
-        raise ValueError("token_ids must be 1D")
-    T = len(token_ids)
-    if T == 0:
-        raise ValueError("token_ids must not be empty")
-    if T > params.pos_emb.shape[0]:
-        raise ValueError("Sequence longer than max_seq_len in params")
-
-    x = params.tok_emb[token_ids] + params.pos_emb[:T]
-    attn_weights: list[np.ndarray] = []
-
-    for layer in params.layers:
-        x_ln = layer_norm(x, layer.ln1_g, layer.ln1_b)
-        attn_out, w = mha(x_ln, layer.Wq, layer.Wk, layer.Wv, layer.Wo, n_heads=n_heads, causal=causal)
-        x = x + attn_out
-        attn_weights.append(w)
-
-        x_ln2 = layer_norm(x, layer.ln2_g, layer.ln2_b)
-        x = x + ffn(x_ln2, layer.W1, layer.b1, layer.W2, layer.b2)
-
-    x = layer_norm(x, params.ln_f_g, params.ln_f_b)
-    logits = x @ params.W_out + params.b_out
-
-    return logits, attn_weights
-
-
 # ============================================================================
-# Section 3: demo_transformer_forward.py - Demo script
+# 3. Main Execution Flow
 # ============================================================================
-
-def label(vocab: tuple[str, ...], token_id: int) -> str:
-    ch = vocab[token_id]
-    if ch == "\n":
-        shown = "\\n"
-    elif ch == "\t":
-        shown = "\\t"
-    elif ch == " ":
-        shown = "<space>"
-    else:
-        shown = ch
-    return f"{shown}(U+{ord(ch):04X},id={token_id})"
-
-
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="(학습 아님) Transformer forward 데모(numpy).")
-    p.add_argument("--input", required=True, help="입력 UTF-8 텍스트 파일 경로")
-    p.add_argument("--tokens", type=int, default=64, help="앞에서부터 넣을 토큰 수(T)")
-    p.add_argument("--d_model", type=int, default=64, help="모델 차원(d_model)")
-    p.add_argument("--heads", type=int, default=4, help="헤드 수(heads)")
-    p.add_argument("--layers", type=int, default=2, help="레이어 수(layers)")
-    p.add_argument("--seed", type=int, default=0, help="난수 시드(seed)")
-    p.add_argument("--top", type=int, default=10, help="마지막 위치에서 top-N 토큰 출력")
-    return p.parse_args()
-
 
 def main() -> None:
-    args = parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True, help="입력 텍스트 파일 경로")
+    parser.add_argument("--tokens", type=int, default=32, help="처리할 토큰 수")
+    parser.add_argument("--d_model", type=int, default=64, help="모델 차원")
+    parser.add_argument("--n_heads", type=int, default=4, help="어텐션 헤드 수")
+    args = parser.parse_args()
 
-    text = Path(args.input).read_text(encoding="utf-8")
-    if not text:
-        raise ValueError("Input text is empty")
+    # 데이터 로드
+    data_path = Path(args.input)
+    if not data_path.exists():
+        print(f"데이터 파일이 없습니다: {data_path}")
+        return
+    text = data_path.read_text(encoding="utf-8")
+    tokenizer = CharTokenizer.from_text(text)
+    ids = tokenizer.encode(text)[:args.tokens]
+    T = len(ids)
+    D = args.d_model
+    H = args.n_heads
 
-    tok = CharTokenizer.from_text(text)
-    ids = np.array(tok.encode(text), dtype=np.int64)
-    T = min(int(args.tokens), len(ids))
-    ids = ids[:T]
+    print(f"--- Transformer Forward Demo (T={T}, D={D}, Heads={H}) ---")
 
-    cfg = TransformerConfig(
-        vocab_size=tok.vocab_size,
-        max_seq_len=T,
-        d_model=int(args.d_model),
-        n_heads=int(args.heads),
-        d_ff=int(args.d_model) * 4,
-        n_layers=int(args.layers),
-        seed=int(args.seed),
-    )
-    params = init_params(cfg)
+    # 1. 파라미터 초기화 (데모를 위해 랜덤 가중치 사용)
+    rng = np.random.default_rng(42)
+    scale = 0.02
+    
+    # Embedding & Positional Embedding
+    tok_emb = rng.normal(0, scale, (tokenizer.vocab_size, D))
+    pos_emb = rng.normal(0, scale, (T, D))
+    
+    # Layer 1 Params (Simplified)
+    # MHA Params
+    Wq = rng.normal(0, scale, (D, D))
+    Wk = rng.normal(0, scale, (D, D))
+    Wv = rng.normal(0, scale, (D, D))
+    Wo = rng.normal(0, scale, (D, D))
+    ln1_g = np.ones(D); ln1_b = np.zeros(D)
+    
+    # FFN Params
+    W1 = rng.normal(0, scale, (D, D * 4))
+    b1 = np.zeros(D * 4)
+    W2 = rng.normal(0, scale, (D * 4, D))
+    b2 = np.zeros(D)
+    ln2_g = np.ones(D); ln2_b = np.zeros(D)
 
-    logits, _ = forward(params, ids, n_heads=cfg.n_heads, causal=True)
+    # Output Layer
+    W_out = rng.normal(0, scale, (D, tokenizer.vocab_size))
 
-    last_logits = logits[-1]
-    probs = softmax(last_logits, axis=0)
-
-    top_n = min(int(args.top), tok.vocab_size)
-    top_ids = np.argsort(probs)[-top_n:][::-1]
-
-    print(f"T={T}  d_model={cfg.d_model}  heads={cfg.n_heads}  layers={cfg.n_layers}")
-    print("Top predictions (random weights; just shape demo):")
-    for token_id in top_ids:
-        tid = int(token_id)
-        print(f"  {label(tok.vocab, tid)}  p={float(probs[tid]):.4f}")
+    # 2. Forward Pass 계산
+    print("\n1) Input Embedding + Positional Encoding")
+    x = tok_emb[ids] + pos_emb
+    
+    print("2) Transformer Block: Multi-Head Attention")
+    # Residual Connection + LayerNorm
+    x_norm = layer_norm(x, ln1_g, ln1_b)
+    attn_out = multi_head_attention(x_norm, Wq, Wk, Wv, Wo, n_heads=H)
+    x = x + attn_out
+    
+    print("3) Transformer Block: Feed-Forward Network")
+    # Residual Connection + LayerNorm
+    x_norm = layer_norm(x, ln2_g, ln2_b)
+    ffn_out = feed_forward(x_norm, W1, b1, W2, b2)
+    x = x + ffn_out
+    
+    print("4) Output Linear Layer")
+    logits = x @ W_out # (T, V)
+    
+    # 3. 결과 출력
+    last_probs = softmax(logits[-1])
+    top_indices = np.argsort(last_probs)[::-1][:5]
+    
+    print(f"\n[마지막 토큰 '{tokenizer.decode([ids[-1]])}' 다음으로 올 확률이 높은 글자]")
+    for idx in top_indices:
+        print(f"  '{tokenizer.vocab[idx]}': {last_probs[idx]:.4f}")
 
 
 if __name__ == "__main__":

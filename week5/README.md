@@ -1,40 +1,32 @@
-# Week 5 과제: Transformer 블록 감 잡기
+# Week 5 과제 (Core / numpy)
 
-> 관련 레슨: [07_transformer_block — Transformer 블록 조립하기](lessons/07_transformer_block.md)
+> 관련 레슨: [07_transformer_block](lessons/07_transformer_block.md)
 
-목표: Transformer의 “조립 구조”를 실행으로 확인합니다.
+목표: **Multi-Head Attention**과 **Transformer Block**의 전체적인 Forward Pass 과정을 이해합니다.
 
 ---
 
-## 과제 1) forward 데모 실행
+## 과제 1) Transformer Forward Pass 실행
 
-> 소스: [`demo_transformer_forward.py`](code/demo_transformer_forward.py)
+아래 명령을 실행하여 트랜스포머 모델이 입력 토큰에 대해 다음 토큰 확률을 어떻게 계산하는지 확인하세요.
+
+> 소스: [`week5_complete.py`](code/week5_complete.py)
 ```powershell
-python code/demo_transformer_forward.py --input data/tiny_corpus_ko.txt --tokens 48 --d_model 64 --heads 4 --layers 2 --top 10
+python code/week5_complete.py --input data/tiny_corpus_ko.txt --tokens 32 --d_model 64 --n_heads 4
 ```
 
 질문:
-
-- `--tokens`를 늘리면 무엇이 늘어나나요? (logits의 어떤 차원?)
-- `--heads`를 1→4→8로 바꾸면 어떤 제약이 생기나요? (`d_model`과의 관계)
-  - 힌트: 보통 `d_model % heads == 0`이어야 하고, `d_head = d_model / heads`입니다.
+1. 헤드 수(`--n_heads`)를 바꿨을 때 모델의 동작(출력 형태 등)에 변화가 있나요?
+2. `d_model`이 각 컴포넌트(MHA, FFN)에서 어떻게 사용되는지 코드를 통해 확인해보세요.
 
 ---
 
-## 과제 2) Attention weights 출력(선택)
+## 과제 2) 블록 구조 파악
 
-> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
+`week5_complete.py`의 `main` 함수 내에서 Residual Connection과 Layer Normalization이 적용되는 순서를 확인하고, 왜 이런 구조를 사용하는지 생각해보세요.
 
-아래 명령으로 attention weights를 시각화해보세요:
+---
 
-```powershell
-python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 24 --pos 23 --top 8
-```
+## 자기 점검(자동)
 
-- `--tokens`를 조금 늘리고
-- `--matrix` 옵션으로 전체 weight 행렬을 출력해보세요.
-
-> 소스: [`demo_self_attention.py`](code/demo_self_attention.py)
-```powershell
-python code/demo_self_attention.py --input data/tiny_corpus_ko.txt --tokens 16 --pos 15 --top 6 --matrix
-```
+(Week 5는 학습 코드가 포함되어 있지 않으므로, 별도의 단위 테스트는 생략하거나 구현 검증 위주로 진행합니다.)

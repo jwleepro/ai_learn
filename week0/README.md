@@ -12,7 +12,7 @@
 
 - `x=3`, `w=10`, `b=20` → `y=50`
 
-힌트: [`week0_dl_basics.py`](code/week0_dl_basics.py)
+힌트: [`week0_complete.py`](code/week0_complete.py)
 
 ---
 

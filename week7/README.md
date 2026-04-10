@@ -1,39 +1,38 @@
-# Week 7 과제: BPE 토크나이저 튜닝
+# Week 7 과제 (Core / numpy)
 
-> 관련 레슨: [09_bpe_tokenizer — BPE 토크나이저 직접 만들기](lessons/09_bpe_tokenizer.md)
+> 관련 레슨: [09_bpe_tokenizer](lessons/09_bpe_tokenizer.md)
 
-목표: merge 수를 바꿔가며 토큰이 어떻게 바뀌는지 관찰합니다.
+목표: 현대 LLM에서 필수적으로 사용하는 **BPE(Byte Pair Encoding)** 토크나이저의 학습 및 인코딩 원리를 이해합니다.
 
 ---
 
-## 과제 1) merge 수 비교
+## 과제 1) BPE 토크나이저 학습
 
-아래를 각각 실행하세요:
+아래 명령을 실행하여 텍스트 데이터로부터 BPE 병합 규칙을 추출하고 토크나이저를 학습시키세요.
 
-> 소스: [`train_bpe_tokenizer.py`](code/train_bpe_tokenizer.py)
-> 소스: [`train_bpe_tokenizer.py`](code/train_bpe_tokenizer.py)
-> 소스: [`train_bpe_tokenizer.py`](code/train_bpe_tokenizer.py)
+> 소스: [`week7_complete.py`](code/week7_complete.py)
 ```powershell
-python code/train_bpe_tokenizer.py --input data/tiny_corpus_ko.txt --merges 50  --out llm_from_scratch/models/bpe_50.json
-python code/train_bpe_tokenizer.py --input data/tiny_corpus_ko.txt --merges 200 --out llm_from_scratch/models/bpe_200.json
-python code/train_bpe_tokenizer.py --input data/tiny_corpus_ko.txt --merges 800 --out llm_from_scratch/models/bpe_800.json
-```
-
-각 토크나이저로 같은 텍스트를 인코딩해 비교:
-
-> 소스: [`demo_bpe.py`](code/demo_bpe.py)
-> 소스: [`demo_bpe.py`](code/demo_bpe.py)
-> 소스: [`demo_bpe.py`](code/demo_bpe.py)
-```powershell
-python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_50.json  --text_file data/tiny_corpus_ko.txt --max_tokens 40
-python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_200.json --text_file data/tiny_corpus_ko.txt --max_tokens 40
-python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_800.json --text_file data/tiny_corpus_ko.txt --max_tokens 40
+python code/week7_complete.py --train --vocab_size 500 --data data/tiny_corpus_ko.txt
 ```
 
 질문:
+1. 병합이 진행됨에 따라 토큰의 모양(글자 조합)이 어떻게 변하나요?
+2. `vocab_size`를 256(기본 바이트)에서 500, 1000으로 늘렸을 때 어떤 차이가 있나요?
 
-1. merge가 늘수록 “토큰 길이”와 “토큰 개수”는 어떻게 바뀌나요?
-2. 너무 많은 merge는 어떤 문제를 만들까요? (힌트: 과적합/희귀 토큰)
+---
+
+## 과제 2) BPE 인코딩/디코딩 데모
+
+학습된 토크나이저를 사용하여 임의의 문장을 인코딩하고 다시 디코딩해보세요.
+
+> 소스: [`week7_complete.py`](code/week7_complete.py)
+```powershell
+python code/week7_complete.py --demo
+```
+
+질문:
+1. 하나의 토큰이 여러 글자를 포함하고 있나요?
+2. 문자 단위 토크나이저보다 텍스트를 표현하는 데 필요한 토큰의 수가 줄어들었나요?
 
 ---
 
@@ -42,4 +41,3 @@ python code/demo_bpe.py --tokenizer llm_from_scratch/models/bpe_800.json --text_
 ```powershell
 python -m unittest discover -s llm_from_scratch/tests -p "test_core_week7_bpe.py" -v
 ```
-

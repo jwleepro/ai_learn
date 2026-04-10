@@ -1,59 +1,36 @@
-# Week 8 (선택) 과제: 파인튜닝 준비(데이터/평가/운영)
+# Week 8 과제 (SFT & Ops)
 
-목표: “파인튜닝을 돌릴 수 있는 상태”가 되려면 무엇을 준비해야 하는지 감을 잡습니다.
+> 관련 레슨: [11_finetuning_essentials](lessons/11_finetuning_essentials.md), [12_lora_qlora_and_ops](lessons/12_lora_qlora_and_ops.md)
 
-> 관련 레슨: [11_finetuning_essentials — 파인튜닝 필수 용어/흐름](lessons/11_finetuning_essentials.md), [12_lora_qlora_and_ops — LoRA/QLoRA + 운영](lessons/12_lora_qlora_and_ops.md)
-
----
-
-## 과제 1) 내 태스크를 1문장으로 정의하기
-
-아래 중 하나를 골라 “입력/출력”을 1문장으로 정의하세요.
-
-- 구조화 추출: 텍스트 → JSON(필드 고정)
-- 분류: 텍스트 → 라벨(선택지 고정)
-- 요약: 텍스트 → 요약문(길이/톤 제약)
-
-질문:
-
-1. 프롬프트만으로 해결 가능한가요? 아니라면 왜인가요?
-2. RAG가 필요한가요? (최신 정보/사내 문서가 핵심이면 RAG 가능성이 큼)
-3. 파인튜닝이 유리한 지점은 무엇인가요? (비용/지연/재현성/형식 안정성)
+목표: 파인튜닝(SFT)을 위한 데이터셋의 형식을 이해하고, 실제 학습에 사용하기 전에 유효성을 검증하는 방법을 익힙니다.
 
 ---
 
-## 과제 2) ground truth(정답) 20개 만들기(JSONL)
+## 과제 1) SFT JSONL 데이터 검증
 
-아래 포맷으로 JSONL 파일을 하나 만드세요.
+제공된 또는 직접 만든 SFT용 JSONL 데이터셋이 올바른 형식인지 검증하세요.
 
-- 파일: `data/sft_toy.jsonl`
-- 각 줄은 JSON 1개
-- 최소 키: `instruction`, `output`
-
-예시(1줄):
-
-```json
-{"instruction":"다음 문장을 긍정/부정/중립으로 분류해줘: \"배송이 빨라서 만족\"","output":"긍정"}
-```
-
-팁:
-
-- “출력 형식”을 고정할수록(라벨/JSON 스키마) 평가/운영이 쉬워집니다.
-- 애매한 케이스를 일부러 섞어야 실제 성능을 제대로 봅니다.
-
----
-
-## 과제 3) 데이터 유효성 검사(자동)
-
-아래를 실행해 JSONL이 깨져 있지 않은지 확인하세요.
-
-> 소스: [`validate_sft_jsonl.py`](code/validate_sft_jsonl.py)
+> 소스: [`week8_complete.py`](code/week8_complete.py)
 ```powershell
-python code/validate_sft_jsonl.py --input data/sft_toy.jsonl
+python code/week8_complete.py --input data/sft_toy.jsonl
 ```
 
 질문:
+1. JSONL 파일의 각 줄은 어떤 구조로 되어 있어야 하나요? (필수 키 확인)
+2. 데이터에 빈 문자열이 포함되어 있을 때 검증기가 어떻게 반응하나요?
 
-1. “형식 오류(파싱 실패/키 누락)”와 “내용 오류(정답이 이상함)”는 어떻게 구분할 건가요?
-2. 파인튜닝 성능이 나쁘면 “모델”보다 먼저 무엇을 의심해야 하나요?
+---
 
+## 과제 2) (선택) JSON 출력 검증
+
+모델이 반드시 JSON 형식으로 답변해야 하는 태스크(구조화된 추출)의 경우, 아래 옵션을 사용하여 `output` 필드 내의 JSON 유효성을 추가로 검사해보세요.
+
+```powershell
+python code/week8_complete.py --input data/sft_toy.jsonl --expect_json
+```
+
+---
+
+## 자기 점검(자동)
+
+(Week 8은 데이터 검증 도구 위주이므로 별도의 단위 테스트는 생략합니다.)

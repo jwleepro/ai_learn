@@ -1,305 +1,188 @@
-"""Week 7 Complete: BPE Tokenizer.
+"""Week 7 Complete: BPE(Byte Pair Encoding) Tokenizer.
 
-이 통합 파일은 bpe_tokenizer.py, train_bpe_tokenizer.py, demo_bpe.py의
-모든 코드를 포함합니다.
+이 파일은 BPE 토크나이저의 모든 과정(학습, 인코딩, 디코딩, 저장/로드)을
+하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
 
-BPE(Byte Pair Encoding) 토크나이저의 학습, 인코딩, 디코딩을 지원합니다.
+주요 내용:
+1. BPETokenizer: 빈도 기반의 서브워드(Subword) 토크나이징 알고리즘
+2. Training: 가장 자주 발생하는 인접 쌍을 반복적으로 병합하여 어휘 사전(Vocab) 확장
+3. Encoding/Decoding: 학습된 병합 규칙을 적용하여 텍스트를 토큰 ID로 변환 및 복원
 
-BPE 알고리즘:
-1. 초기 어휘를 모든 고유 문자로 설정
-2. num_merges번 반복:
-   a. 텍스트에서 가장 자주 나타나는 인접 토큰 쌍(pair) 찾기
-   b. 그 쌍을 하나의 토큰으로 합치기(merge)
-3. 학습된 병합 순서를 저장해 인코딩/디코딩에 사용
+실행 방법:
+- 학습: python week7/code/week7_complete.py --train
+- 데모: python week7/code/week7_complete.py --demo
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import collections
+from dataclasses import dataclass
 from pathlib import Path
 
 
 # ============================================================================
-# Section 1: bpe_tokenizer.py - BPE Core Implementation
+# 1. BPE Tokenizer Implementation
 # ============================================================================
-
-def _get_pairs(symbols: tuple[str, ...]) -> set[tuple[str, str]]:
-    """인접한 토큰 쌍을 찾습니다."""
-    return {(symbols[i], symbols[i + 1]) for i in range(len(symbols) - 1)}
-
-
-def _merge_symbols(symbols: tuple[str, ...], pair: tuple[str, str]) -> tuple[str, ...]:
-    """주어진 쌍을 모든 위치에서 병합합니다."""
-    a, b = pair
-    merged: list[str] = []
-    i = 0
-    while i < len(symbols):
-        if i < len(symbols) - 1 and symbols[i] == a and symbols[i + 1] == b:
-            merged.append(a + b)
-            i += 2
-        else:
-            merged.append(symbols[i])
-            i += 1
-    return tuple(merged)
-
-
-def _text_to_word_symbols(text: str) -> list[tuple[str, ...]]:
-    """간단한 공백 토큰화를 사용하여 단어를 심볼 리스트로 변환합니다."""
-    words = [w for w in text.split() if w]
-    out: list[tuple[str, ...]] = []
-    for w in words:
-        out.append(tuple(list(w) + ["</w>"]))
-    return out
-
 
 class BPETokenizer:
-    """BPE 토크나이저(간단 버전)."""
-
-    def __init__(self, merges: tuple[tuple[str, str], ...], token_to_id: dict[str, int], id_to_token: tuple[str, ...]):
-        self.merges = merges
-        self.token_to_id = token_to_id
-        self.id_to_token = id_to_token
-
-    @property
-    def vocab_size(self) -> int:
-        return len(self.id_to_token)
-
-    @property
-    def ranks(self) -> dict[tuple[str, str], int]:
-        return {pair: i for i, pair in enumerate(self.merges)}
-
+    def __init__(self, vocab: dict[int, bytes], merges: dict[tuple[int, int], int]):
+        self.vocab = vocab # id -> bytes
+        self.merges = merges # (id, id) -> merged_id
+        
     @classmethod
-    def train(cls, text: str, *, num_merges: int = 200) -> BPETokenizer:
-        """BPE 토크나이저를 학습합니다."""
-        if not text:
-            raise ValueError("text must not be empty")
-        if num_merges <= 0:
-            raise ValueError("num_merges must be > 0")
-
-        vocab: dict[tuple[str, ...], int] = {}
-        for symbols in _text_to_word_symbols(text):
-            vocab[symbols] = vocab.get(symbols, 0) + 1
-
-        merges: list[tuple[str, str]] = []
-        for _ in range(num_merges):
-            pair_freq: dict[tuple[str, str], int] = {}
-            for symbols, freq in vocab.items():
-                for pair in _get_pairs(symbols):
-                    pair_freq[pair] = pair_freq.get(pair, 0) + freq
-
-            if not pair_freq:
+    def train(cls, text: str, vocab_size: int) -> BPETokenizer:
+        """BPE 알고리즘을 사용하여 토크나이저를 학습합니다."""
+        # 1. 초기 어휘 사전: 각 바이트(0-255)를 개별 토큰으로 설정
+        tokens = list(text.encode("utf-8"))
+        vocab = {i: bytes([i]) for i in range(256)}
+        merges = {}
+        
+        num_merges = vocab_size - 256
+        current_ids = list(tokens)
+        
+        for i in range(num_merges):
+            # 가장 빈번한 인접 쌍 찾기
+            stats = collections.Counter()
+            for pair in zip(current_ids, current_ids[1:]):
+                stats[pair] += 1
+            
+            if not stats:
                 break
-
-            best_pair = max(pair_freq.items(), key=lambda kv: kv[1])[0]
-            merges.append(best_pair)
-
-            new_vocab: dict[tuple[str, ...], int] = {}
-            for symbols, freq in vocab.items():
-                merged = _merge_symbols(symbols, best_pair)
-                new_vocab[merged] = new_vocab.get(merged, 0) + freq
-            vocab = new_vocab
-
-        tokens: set[str] = set()
-        for symbols in vocab:
-            tokens.update(symbols)
-
-        id_to_token = tuple(sorted(tokens))
-        token_to_id = {t: i for i, t in enumerate(id_to_token)}
-
-        return cls(merges=tuple(merges), token_to_id=token_to_id, id_to_token=id_to_token)
-
-    def _encode_word_to_tokens(self, word: str) -> tuple[str, ...]:
-        """단일 단어를 BPE 토큰 시퀀스로 인코딩합니다."""
-        symbols: tuple[str, ...] = tuple(list(word) + ["</w>"])
-        ranks = self.ranks
-
-        while True:
-            pairs = _get_pairs(symbols)
-            if not pairs:
-                break
-
-            best = None
-            best_rank = 10**18
-            for p in pairs:
-                r = ranks.get(p)
-                if r is not None and r < best_rank:
-                    best = p
-                    best_rank = r
-
-            if best is None:
-                break
-
-            symbols = _merge_symbols(symbols, best)
-
-        return symbols
-
-    def encode_tokens(self, text: str) -> list[str]:
-        """텍스트를 BPE 토큰 리스트로 인코딩합니다."""
-        out: list[str] = []
-        for word in [w for w in text.split() if w]:
-            out.extend(self._encode_word_to_tokens(word))
-        return out
+                
+            top_pair = max(stats, key=stats.get)
+            new_id = 256 + i
+            
+            # 병합 규칙 저장
+            merges[top_pair] = new_id
+            vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]
+            
+            # 텍스트 내의 쌍을 새로운 ID로 교체
+            new_ids = []
+            skip = False
+            for j in range(len(current_ids)):
+                if skip:
+                    skip = False
+                    continue
+                if j < len(current_ids) - 1 and (current_ids[j], current_ids[j+1]) == top_pair:
+                    new_ids.append(new_id)
+                    skip = True
+                else:
+                    new_ids.append(current_ids[j])
+            current_ids = new_ids
+            
+            if (i + 1) % 50 == 0:
+                print(f"Merge {i+1}/{num_merges}: {top_pair} -> {new_id} ({vocab[new_id].decode('utf-8', errors='replace')})")
+                
+        return cls(vocab, merges)
 
     def encode(self, text: str) -> list[int]:
-        """텍스트를 토큰 ID 리스트로 인코딩합니다."""
-        ids: list[int] = []
-        for tok in self.encode_tokens(text):
-            if tok not in self.token_to_id:
-                raise KeyError(f"Unknown token {tok!r}. Train tokenizer on larger data?")
-            ids.append(self.token_to_id[tok])
+        """학습된 병합 규칙을 사용하여 텍스트를 토큰 ID로 인코딩합니다."""
+        ids = list(text.encode("utf-8"))
+        while len(ids) >= 2:
+            # 적용 가능한 병합 규칙 중 가장 먼저 학습된(순위가 높은) 규칙 찾기
+            stats = {}
+            for i, pair in enumerate(zip(ids, ids[1:])):
+                if pair in self.merges:
+                    # (순위, 위치) 저장
+                    if pair not in stats:
+                        stats[pair] = self.merges[pair]
+            
+            if not stats:
+                break
+                
+            # 가장 순위가 높은(값이 작은) 병합 규칙 선택
+            best_pair = min(stats, key=stats.get)
+            new_id = self.merges[best_pair]
+            
+            new_ids = []
+            skip = False
+            for i in range(len(ids)):
+                if skip:
+                    skip = False
+                    continue
+                if i < len(ids) - 1 and (ids[i], ids[i+1]) == best_pair:
+                    new_ids.append(new_id)
+                    skip = True
+                else:
+                    new_ids.append(ids[i])
+            ids = new_ids
         return ids
 
-    def decode_tokens(self, tokens: list[str]) -> str:
-        """토큰 리스트를 텍스트로 디코딩합니다."""
-        pieces: list[str] = []
-        for tok in tokens:
-            if tok.endswith("</w>"):
-                pieces.append(tok[: -len("</w>")])
-                pieces.append(" ")
-            else:
-                pieces.append(tok)
-        return "".join(pieces).rstrip()
-
     def decode(self, ids: list[int]) -> str:
-        """토큰 ID 리스트를 텍스트로 디코딩합니다."""
-        tokens: list[str] = []
-        for token_id in ids:
-            if not (0 <= token_id < self.vocab_size):
-                raise ValueError(f"token_id out of range: {token_id}")
-            tokens.append(self.id_to_token[token_id])
-        return self.decode_tokens(tokens)
+        """토큰 ID들을 바이트 시퀀스로 결합한 후 텍스트로 디코딩합니다."""
+        parts = [self.vocab[idx] for idx in ids]
+        return b"".join(parts).decode("utf-8", errors="replace")
 
-    def save_json(self, path: str | Path) -> None:
-        """토크나이저를 JSON으로 저장합니다."""
-        path = Path(path)
-        payload = {
-            "type": "BPETokenizer",
-            "merges": [list(p) for p in self.merges],
-            "id_to_token": list(self.id_to_token),
+    def save(self, path: str):
+        # JSON 저장을 위해 튜플 키를 문자열로 변환
+        data = {
+            "vocab": {str(k): v.hex() for k, v in self.vocab.items()},
+            "merges": {f"{k[0]},{k[1]}": v for k, v in self.merges.items()}
         }
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(path).write_text(json.dumps(data, indent=2))
 
     @classmethod
-    def load_json(cls, path: str | Path) -> BPETokenizer:
-        """JSON에서 토크나이저를 로드합니다."""
-        path = Path(path)
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        if payload.get("type") != "BPETokenizer":
-            raise ValueError("Not a BPETokenizer json")
-
-        merges_raw = payload.get("merges")
-        if not isinstance(merges_raw, list):
-            raise ValueError("Invalid merges")
-        merges: list[tuple[str, str]] = []
-        for item in merges_raw:
-            if not (isinstance(item, list) and len(item) == 2 and all(isinstance(x, str) for x in item)):
-                raise ValueError("Invalid merge pair")
-            merges.append((item[0], item[1]))
-
-        id_to_token_raw = payload.get("id_to_token")
-        if not isinstance(id_to_token_raw, list) or not all(isinstance(x, str) for x in id_to_token_raw):
-            raise ValueError("Invalid id_to_token")
-        id_to_token = tuple(id_to_token_raw)
-        token_to_id = {t: i for i, t in enumerate(id_to_token)}
-        return cls(merges=tuple(merges), token_to_id=token_to_id, id_to_token=id_to_token)
+    def load(cls, path: str) -> BPETokenizer:
+        data = json.loads(Path(path).read_text())
+        vocab = {int(k): bytes.fromhex(v) for k, v in data["vocab"].items()}
+        merges = {}
+        for k, v in data["merges"].items():
+            p1, p2 = map(int, k.split(","))
+            merges[(p1, p2)] = v
+        return cls(vocab, merges)
 
 
 # ============================================================================
-# Section 2: train_bpe_tokenizer.py - Training script
+# 2. Main Execution Flow
 # ============================================================================
-
-def train_main(args: argparse.Namespace) -> None:
-    """BPE 토크나이저 학습.
-
-    처리 순서:
-    1. 텍스트 파일 로드
-    2. BPE 토크나이저 학습 (병합 횟수 지정)
-    3. 학습된 토크나이저를 JSON으로 저장
-    4. 학습 결과 출력 (어휘 크기, 병합 수)
-
-    BPE의 장점:
-    - 문자 기반 모델보다 효율적 (토큰이 더 큼)
-    - 서브워드 토크나이저보다 단순 (공백 기반)
-    - 훈련 데이터에 특화된 어휘 구성
-    """
-    text = Path(args.input).read_text(encoding="utf-8")
-    tok = BPETokenizer.train(text, num_merges=int(args.merges))
-    tok.save_json(args.out)
-
-    print(f"saved={args.out}  vocab_size={tok.vocab_size}  merges={len(tok.merges)}")
-
-
-# ============================================================================
-# Section 3: demo_bpe.py - Demo script
-# ============================================================================
-
-def demo_main(args: argparse.Namespace) -> None:
-    """BPE encode/decode 데모.
-
-    목표:
-    1. 학습된 BPE 토크나이저 로드
-    2. 텍스트를 인코딩하고 토큰들 확인
-    3. 디코딩해서 원본 텍스트 복원 가능함을 확인
-
-    BPE 분석:
-    - 문자 토크나이저보다 토큰 수가 적음 (더 큰 단위)
-    - 자주 나타나는 부분 문자열들이 단일 토큰으로 나타남
-    """
-    tok = BPETokenizer.load_json(args.tokenizer)
-
-    text = Path(args.text_file).read_text(encoding="utf-8")
-
-    tokens = tok.encode_tokens(text)
-    ids = tok.encode(text)
-
-    print(f"tokens={len(tokens)}  ids={len(ids)}  vocab_size={tok.vocab_size}")
-
-    shown = tokens[: int(args.max_tokens)]
-    print("first tokens:")
-    for i, t in enumerate(shown):
-        print(f"  [{i:02d}] {t!r}")
-
-    print("")
-    print("decode (from ids):")
-    print(tok.decode(ids[: 200]))
-
-
-# ============================================================================
-# Main entry point
-# ============================================================================
-
-def parse_args() -> argparse.Namespace:
-    """메인 커맨드라인 인자를 파싱합니다."""
-    p = argparse.ArgumentParser(description="Week 7: BPE 토크나이저 (학습 및 데모).")
-    sub = p.add_subparsers(dest="cmd", required=True)
-
-    # train 서브커맨드
-    p_train = sub.add_parser("train", help="BPE 토크나이저 학습")
-    p_train.add_argument("--input", required=True, help="입력 UTF-8 텍스트 파일 경로")
-    p_train.add_argument("--out", default="llm_from_scratch/models/bpe_tokenizer.json", help="출력 JSON 경로")
-    p_train.add_argument("--merges", type=int, default=200, help="merge 반복 횟수")
-
-    # demo 서브커맨드
-    p_demo = sub.add_parser("demo", help="BPE encode/decode 데모")
-    p_demo.add_argument("--tokenizer", required=True, help="토크나이저 JSON 경로")
-    p_demo.add_argument("--text_file", required=True, help="인코딩할 텍스트 파일 경로")
-    p_demo.add_argument("--max_tokens", type=int, default=60, help="앞에서부터 N개 토큰 출력")
-
-    return p.parse_args()
-
 
 def main() -> None:
-    """메인 통합 CLI 인터페이스."""
-    args = parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train", action="store_true", help="학습 실행")
+    parser.add_argument("--demo", action="store_true", help="데모 실행")
+    parser.add_argument("--data", default="week7/data/tiny_corpus_ko.txt", help="데이터 경로")
+    parser.add_argument("--vocab_size", type=int, default=500, help="목표 어휘 사전 크기")
+    parser.add_argument("--model_path", default="week7/code/bpe_tokenizer.json", help="모델 저장 경로")
+    args = parser.parse_args()
 
-    if args.cmd == "train":
-        train_main(args)
-    elif args.cmd == "demo":
-        demo_main(args)
+    if args.train:
+        data_path = Path(args.data)
+        if not data_path.exists():
+            print(f"데이터 파일이 없습니다: {data_path}")
+            return
+        text = data_path.read_text(encoding="utf-8")
+        
+        print(f"--- BPE 학습 시작 (Target Vocab Size: {args.vocab_size}) ---")
+        tokenizer = BPETokenizer.train(text, args.vocab_size)
+        tokenizer.save(args.model_path)
+        print(f"학습 완료 및 저장: {args.model_path}")
+
+    elif args.demo:
+        if not Path(args.model_path).exists():
+            print("모델 파일이 없습니다. 먼저 --train을 실행하세요.")
+            return
+        
+        tokenizer = BPETokenizer.load(args.model_path)
+        test_text = "안녕하세요, BPE 토크나이저 테스트입니다. 딥러닝은 재미있어요!"
+        
+        ids = tokenizer.encode(test_text)
+        decoded = tokenizer.decode(ids)
+        
+        print(f"원본 텍스트: {test_text}")
+        print(f"인코딩 IDs: {ids}")
+        print(f"토큰 수: {len(ids)} (바이트 수: {len(test_text.encode('utf-8'))})")
+        print(f"디코딩 결과: {decoded}")
+        
+        # 개별 토큰 확인
+        print("\n[개별 토큰 분석]")
+        for idx in ids:
+            token_bytes = tokenizer.vocab[idx]
+            print(f"ID {idx:3d}: {token_bytes.decode('utf-8', errors='replace')!r}")
+
     else:
-        raise AssertionError("unreachable")
+        parser.print_help()
 
 
 if __name__ == "__main__":
