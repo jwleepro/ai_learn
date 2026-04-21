@@ -1,258 +1,176 @@
-"""Week 3 Complete: MLP 언어모델.
-
-이 파일은 MLP 기반 언어모델의 모든 과정(토크나이저, 데이터셋 생성, 모델 구현, 학습, 생성)을
-하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
-
-주요 내용:
-1. CharTokenizer: 글자 단위 토크나이저
-2. Dataset: 슬라이딩 윈도우 기반 컨텍스트 데이터셋 생성
-3. MLP Model: 임베딩, 은닉층, 출력층으로 구성된 신경망 (NumPy 구현)
-4. Training: SGD(확률적 경사 하강법)를 이용한 학습
-5. Generation: 학습된 모델을 이용한 텍스트 생성 (Temperature, Top-k/p 샘플링)
-
-실행 방법:
-- 학습: python week3/code/week3_complete.py --train
-- 생성: python week3/code/week3_complete.py --generate
-"""
-
-from __future__ import annotations
+"""Week 3: MLP 언어모델 (초보용 단순 버전)."""
 
 import argparse
-import json
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 
 
-# ============================================================================
-# 1. Utility Functions & Classes (Formerly external modules)
-# ============================================================================
-
-@dataclass
-class CharTokenizer:
-    """글자 단위 토크나이저."""
-    vocab: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
-        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
-
-    @property
-    def vocab_size(self) -> int: return len(self.vocab)
-
-    @classmethod
-    def from_text(cls, text: str) -> CharTokenizer:
-        return cls(tuple(sorted(set(text))))
-
-    def encode(self, text: str) -> list[int]:
-        return [self.char_to_id[ch] for ch in text]
-
-    def decode(self, ids: list[int]) -> str:
-        return "".join(self.vocab[i] for i in ids)
+def build_tokenizer(text: str):
+    vocab = sorted(set(text))
+    char_to_id = {}
+    for i, ch in enumerate(vocab):
+        char_to_id[ch] = i
+    return vocab, char_to_id
 
 
-def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
-    shifted = logits - logits.max(axis=axis, keepdims=True)
+def encode_text(text: str, char_to_id: dict[str, int]) -> list[int]:
+    return [char_to_id[ch] for ch in text]
+
+
+def decode_ids(ids: list[int], vocab: list[str]) -> str:
+    return "".join(vocab[idx] for idx in ids)
+
+
+def softmax(logits: np.ndarray) -> np.ndarray:
+    shifted = logits - logits.max(axis=1, keepdims=True)
     exp = np.exp(shifted)
-    return exp / exp.sum(axis=axis, keepdims=True)
+    return exp / exp.sum(axis=1, keepdims=True)
 
 
-def log_softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
-    shifted = logits - logits.max(axis=axis, keepdims=True)
-    return shifted - np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
-
-
-def make_context_dataset(token_ids: np.ndarray, context_len: int) -> tuple[np.ndarray, np.ndarray]:
-    n = len(token_ids) - context_len
+def make_dataset(ids: np.ndarray, context_len: int) -> tuple[np.ndarray, np.ndarray]:
+    n = len(ids) - context_len
     X = np.empty((n, context_len), dtype=np.int64)
-    y = np.empty((n,), dtype=np.int64)
+    y = np.empty(n, dtype=np.int64)
     for i in range(n):
-        X[i] = token_ids[i : i + context_len]
-        y[i] = token_ids[i + context_len]
+        X[i] = ids[i : i + context_len]
+        y[i] = ids[i + context_len]
     return X, y
 
 
-@dataclass
-class SamplingConfig:
-    temperature: float = 1.0
-    top_k: int | None = None
-    top_p: float | None = None
-
-
-def sample_from_probs(probs: np.ndarray, rng: np.random.Generator, cfg: SamplingConfig) -> int:
-    p = probs.copy()
-    if cfg.temperature != 1.0:
-        p = np.power(p, 1.0 / cfg.temperature)
-        p /= p.sum()
-    
-    if cfg.top_k is not None:
-        indices_to_remove = p < np.partition(p, -cfg.top_k)[-cfg.top_k]
-        p[indices_to_remove] = 0
-        p /= p.sum()
-        
-    if cfg.top_p is not None:
-        sorted_indices = np.argsort(p)[::-1]
-        sorted_probs = p[sorted_indices]
-        cumulative_probs = np.cumsum(sorted_probs)
-        indices_to_remove = cumulative_probs > cfg.top_p
-        indices_to_remove[1:] = indices_to_remove[:-1].copy()
-        indices_to_remove[0] = False
-        p[sorted_indices[indices_to_remove]] = 0
-        p /= p.sum()
-        
-    return int(rng.choice(len(p), p=p))
-
-
-# ============================================================================
-# 2. MLP Model Implementation
-# ============================================================================
-
-@dataclass
-class MLPLMParams:
-    E: np.ndarray   # Embedding table
-    W1: np.ndarray  # Hidden weights
-    b1: np.ndarray  # Hidden bias
-    W2: np.ndarray  # Output weights
-    b2: np.ndarray  # Output bias
-
-
-def init_params(vocab_size: int, context_len: int, embed_dim: int, hidden_dim: int, rng: np.random.Generator) -> MLPLMParams:
+def init_params(vocab_size: int, context_len: int, embed_dim: int, hidden_dim: int):
+    rng = np.random.default_rng(42)
     scale = 0.02
-    return MLPLMParams(
-        E = rng.normal(0, scale, (vocab_size, embed_dim)),
-        W1 = rng.normal(0, scale, (context_len * embed_dim, hidden_dim)),
-        b1 = np.zeros(hidden_dim),
-        W2 = rng.normal(0, scale, (hidden_dim, vocab_size)),
-        b2 = np.zeros(vocab_size)
-    )
+    params = {
+        "E": rng.normal(0, scale, (vocab_size, embed_dim)),
+        "W1": rng.normal(0, scale, (context_len * embed_dim, hidden_dim)),
+        "b1": np.zeros(hidden_dim),
+        "W2": rng.normal(0, scale, (hidden_dim, vocab_size)),
+        "b2": np.zeros(vocab_size),
+    }
+    return params
 
 
-def forward(params: MLPLMParams, X: np.ndarray) -> tuple[np.ndarray, dict]:
-    emb = params.E[X] # (B, C, D)
-    h_in = emb.reshape(len(X), -1) # (B, C*D)
-    h_pre = h_in @ params.W1 + params.b1
-    h = np.tanh(h_pre)
-    logits = h @ params.W2 + params.b2
-    return logits, {"X": X, "h_in": h_in, "h_pre": h_pre, "h": h, "emb": emb}
+def forward(params: dict, X: np.ndarray):
+    emb = params["E"][X]
+    h_in = emb.reshape(len(X), -1)
+    h = np.tanh(h_in @ params["W1"] + params["b1"])
+    logits = h @ params["W2"] + params["b2"]
+    cache = {"X": X, "emb": emb, "h_in": h_in, "h": h}
+    return logits, cache
 
 
-def train_step(params: MLPLMParams, X: np.ndarray, y: np.ndarray, lr: float) -> float:
+def train_step(params: dict, X: np.ndarray, y: np.ndarray, lr: float) -> float:
     logits, cache = forward(params, X)
-    probs = softmax(logits, axis=1)
-    
-    # Loss (Cross Entropy)
+    probs = softmax(logits)
     loss = -np.log(probs[np.arange(len(y)), y] + 1e-10).mean()
-    
-    # Backprop
+
     dlogits = probs.copy()
     dlogits[np.arange(len(y)), y] -= 1.0
     dlogits /= len(y)
-    
+
     dW2 = cache["h"].T @ dlogits
     db2 = dlogits.sum(axis=0)
-    
-    dh = dlogits @ params.W2.T
-    dh_pre = dh * (1.0 - cache["h"]**2) # d/dx tanh = 1 - tanh^2
-    
+    dh = dlogits @ params["W2"].T
+    dh_pre = dh * (1.0 - cache["h"] ** 2)
     dW1 = cache["h_in"].T @ dh_pre
     db1 = dh_pre.sum(axis=0)
-    
-    dh_in = dh_pre @ params.W1.T
-    dEmb = dh_in.reshape(cache["emb"].shape)
-    
-    # E update (sparse)
-    np.add.at(params.E, cache["X"], dEmb) # This is actually grad, need to subtract
-    # Wait, the above adds to E. Let's do it properly:
-    dE = np.zeros_like(params.E)
-    np.add.at(dE, cache["X"], dEmb)
-    
-    # Update params
-    params.W2 -= lr * dW2
-    params.b2 -= lr * db2
-    params.W1 -= lr * dW1
-    params.b1 -= lr * db1
-    params.E -= lr * dE
-    
+
+    dflat = dh_pre @ params["W1"].T
+    demb = dflat.reshape(cache["emb"].shape)
+    dE = np.zeros_like(params["E"])
+    for b in range(X.shape[0]):
+        for c in range(X.shape[1]):
+            token_id = cache["X"][b, c]
+            dE[token_id] += demb[b, c]
+
+    params["W2"] -= lr * dW2
+    params["b2"] -= lr * db2
+    params["W1"] -= lr * dW1
+    params["b1"] -= lr * db1
+    params["E"] -= lr * dE
     return float(loss)
 
 
-# ============================================================================
-# 3. Main Execution Flow
-# ============================================================================
+def sample_one(prob: np.ndarray, rng: np.random.Generator, temperature: float) -> int:
+    p = prob.copy()
+    if temperature != 1.0:
+        p = np.power(p, 1.0 / temperature)
+        p = p / p.sum()
+    return int(rng.choice(len(p), p=p))
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train", action="store_true", help="학습 실행")
-    parser.add_argument("--generate", action="store_true", help="생성 실행")
-    parser.add_argument("--data", default="week3/data/tiny_corpus_ko.txt", help="데이터 경로")
-    parser.add_argument("--model_path", default="week3/code/mlp_model.npz", help="모델 저장/불러오기 경로")
+    parser.add_argument("--train", action="store_true")
+    parser.add_argument("--generate", action="store_true")
+    parser.add_argument("--data", default="week3/data/tiny_corpus_ko.txt")
+    parser.add_argument("--model_path", default="week3/code/mlp_model.npz")
     args = parser.parse_args()
 
-    # 데이터 로드
-    data_path = Path(args.data)
-    if not data_path.exists():
-        print(f"데이터 파일이 없습니다: {data_path}")
+    path = Path(args.data)
+    if not path.exists():
+        print(f"파일이 없습니다: {path}")
         return
-    text = data_path.read_text(encoding="utf-8")
-    tokenizer = CharTokenizer.from_text(text)
-    ids = np.array(tokenizer.encode(text))
 
-    # 하이퍼파라미터
-    C = 8      # Context length
-    D = 32     # Embedding dim
-    H = 128    # Hidden dim
-    LR = 0.1
-    EPOCHS = 10 # 교육용이므로 짧게 설정
+    text = path.read_text(encoding="utf-8")
+    vocab, char_to_id = build_tokenizer(text)
+    ids = np.array(encode_text(text, char_to_id), dtype=np.int64)
+
+    context_len = 8
+    embed_dim = 24
+    hidden_dim = 64
+    lr = 0.1
+    epochs = 10
 
     if args.train:
-        print(f"--- 학습 시작 (Vocab: {tokenizer.vocab_size}, Context: {C}) ---")
-        X, y = make_context_dataset(ids, C)
-        rng = np.random.default_rng(42)
-        params = init_params(tokenizer.vocab_size, C, D, H, rng)
+        X, y = make_dataset(ids, context_len)
+        params = init_params(len(vocab), context_len, embed_dim, hidden_dim)
+        for epoch in range(epochs):
+            loss = train_step(params, X, y, lr)
+            print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss:.4f}")
+        np.savez(
+            args.model_path,
+            E=params["E"],
+            W1=params["W1"],
+            b1=params["b1"],
+            W2=params["W2"],
+            b2=params["b2"],
+            vocab=np.array(vocab),
+            context_len=context_len,
+        )
+        print(f"저장 완료: {args.model_path}")
+        return
 
-        for epoch in range(EPOCHS):
-            # 단순화를 위해 전체 데이터를 한 번에 처리 (또는 배치를 나눌 수 있음)
-            loss = train_step(params, X, y, LR)
-            if (epoch + 1) % 2 == 0:
-                print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
-
-        # 모델 저장
-        np.savez(args.model_path, E=params.E, W1=params.W1, b1=params.b1, W2=params.W2, b2=params.b2, vocab=tokenizer.vocab, context_len=C)
-        print(f"모델 저장 완료: {args.model_path}")
-
-    elif args.generate:
+    if args.generate:
         if not Path(args.model_path).exists():
-            print(f"모델 파일이 없습니다. 먼저 --train을 실행하세요: {args.model_path}")
+            print(f"모델 파일이 없습니다: {args.model_path}")
             return
-        
-        # 모델 로드
         ckpt = np.load(args.model_path, allow_pickle=True)
-        vocab = tuple(ckpt["vocab"])
-        tokenizer = CharTokenizer(vocab)
-        params = MLPLMParams(ckpt["E"], ckpt["W1"], ckpt["b1"], ckpt["W2"], ckpt["b2"])
+        params = {
+            "E": ckpt["E"],
+            "W1": ckpt["W1"],
+            "b1": ckpt["b1"],
+            "W2": ckpt["W2"],
+            "b2": ckpt["b2"],
+        }
+        vocab = list(ckpt["vocab"])
         context_len = int(ckpt["context_len"])
 
-        print("--- 텍스트 생성 시작 ---")
         rng = np.random.default_rng()
-        # 시작 컨텍스트: 데이터의 앞부분 사용
         context = ids[:context_len].tolist()
-        print(f"Seed context: '{tokenizer.decode(context)}'")
-        
-        generated = []
+        out = []
         for _ in range(100):
-            x = np.array([context[-context_len:]])
+            x = np.array([context[-context_len:]], dtype=np.int64)
             logits, _ = forward(params, x)
-            probs = softmax(logits[0])
-            next_id = sample_from_probs(probs, rng, SamplingConfig(temperature=0.8))
-            generated.append(next_id)
-            context.append(next_id)
-        
-        print(f"Generated: {tokenizer.decode(generated)}")
+            probs = softmax(logits)[0]
+            nxt = sample_one(probs, rng, temperature=0.8)
+            out.append(nxt)
+            context.append(nxt)
+        print(decode_ids(out, vocab))
+        return
 
-    else:
-        parser.print_help()
+    parser.print_help()
 
 
 if __name__ == "__main__":
