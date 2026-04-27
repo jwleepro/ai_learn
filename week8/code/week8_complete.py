@@ -46,27 +46,34 @@ def main() -> None:
             print(f"파일이 없습니다: {data_path}")
             return
 
+    # 리스트 컴프리헨션 [식 for x in 시퀀스]. 자바/C# 에는 없는 문법.
+    # str.split(",") 으로 자른 뒤 각 토막에 strip() 으로 공백 제거.
     required_keys = [k.strip() for k in args.required.split(",")]
     lines = data_path.read_text(encoding="utf-8").strip().splitlines()
-    
+
+    # f-string: 중괄호 안에 표현식을 넣어 보간. C# 의 $"..." 와 비슷.
     print(f"--- SFT 데이터 검증 시작 (파일: {data_path.name}) ---")
     print(f"필수 키: {required_keys}")
-    
+
     success_count = 0
     error_count = 0
-    
+
+    # enumerate(시퀀스, start=1) : (인덱스, 값) 쌍 순회. start=1 은 1부터 세겠다는 키워드 인자.
+    # `for i, line in ...` 는 튜플 언패킹.
     for i, line in enumerate(lines, start=1):
         try:
             # 1. JSON 문법 검사
             data = json.loads(line)
             
             # 2. 필수 키 존재 여부 검사
+            # `[k for k in ... if 조건]` 형태의 필터링 컴프리헨션 (자바 stream filter, C# LINQ Where 와 같은 의미).
+            # `k not in data` 는 dict 멤버십 검사 — 자바 `containsKey`, C# `ContainsKey` 에 해당.
             missing = [k for k in required_keys if k not in data]
             if missing:
                 print(f"라인 {i} 에러: 누락된 키 {missing}")
                 error_count += 1
                 continue
-            
+
             # 3. 값의 유효성 검사 (비어있는 문자열 등)
             empty = [k for k in required_keys if not str(data[k]).strip()]
             if empty:
@@ -78,7 +85,7 @@ def main() -> None:
             if args.expect_json:
                 try:
                     json.loads(data["output"])
-                except:
+                except json.JSONDecodeError:
                     print(f"라인 {i} 에러: output이 JSON 형식이 아님")
                     error_count += 1
                     continue

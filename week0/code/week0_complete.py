@@ -12,7 +12,7 @@
 모든 코드를 합친 것입니다.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가해 전방 참조 허용
 
 from dataclasses import dataclass
 
@@ -30,6 +30,8 @@ def softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
     """
     if logits.size == 0:
         raise ValueError("logits must not be empty")
+
+    # max-shift: 가장 큰 값을 빼서 exp 계산 시 오버플로우를 막는다.
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
@@ -39,6 +41,7 @@ def log_softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
     """로그 소프트맥스 함수입니다."""
     if logits.size == 0:
         raise ValueError("logits must not be empty")
+
     shifted = logits - logits.max(axis=axis, keepdims=True)
     logsumexp = np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
     return shifted - logsumexp
@@ -130,6 +133,10 @@ def relu(x: np.ndarray) -> np.ndarray:
     return np.maximum(x, 0.0)
 
 
+# @dataclass: 데코레이터(자바의 어노테이션과 비슷하지만 실제로 클래스를 변형).
+# 아래 필드 선언만으로 __init__/__repr__/__eq__ 가 자동 생성된다.
+# frozen=True 이면 필드 변경 불가(자바의 record, C#의 record 와 유사).
+# list[float] 은 자바 List<Float> 와 같은 의미 (파이썬 3.9+ 빌트인 제네릭).
 @dataclass(frozen=True)
 class LinearGDResult:
     w: float
@@ -137,6 +144,9 @@ class LinearGDResult:
     losses: list[float]
 
 
+# 파라미터 목록 가운데의 단독 `*` 는 파이썬 전용 문법:
+# `*` 뒤의 인자는 키워드로만 호출 가능하다. 즉 fit_line_gd(x, y, lr=0.1) 는 OK,
+# fit_line_gd(x, y, 0.1) 은 에러. 자바/C#에는 이런 강제는 없다.
 def fit_line_gd(
     x: np.ndarray,
     y: np.ndarray,
@@ -192,6 +202,7 @@ def fit_line_gd(
     losses: list[float] = []
     n = float(len(x))
 
+    # `_` 는 "값을 안 쓸 변수" 라는 파이썬 관례. range(N) 은 0..N-1 을 차례로 돌려준다.
     for _ in range(int(steps)):
         y_pred = (w * x) + b
         err = y_pred - y
@@ -238,7 +249,11 @@ def main() -> None:
     # 신경망 층(layer)의 기본 연산이다.
     print("\n[2] 행렬곱 (Matrix Multiplication)")
     sales = np.array([100, 80, 120], dtype=np.float64)
+    # 튜플 언패킹: 함수가 길이 2짜리 배열을 돌려주면 두 변수에 한 번에 분해해 담을 수 있다.
+    # 자바에는 없는 문법, C#의 deconstruction 과 비슷.
     revenue, profit = burger_finance(sales)
+    # f-string `f"...{식:포맷}..."`: C#의 보간 문자열 `$"...{x:F0}..."`와 비슷.
+    # `:.0f` 는 소수점 0자리, `:,.0f` 는 천단위 콤마 + 정수.
     print(f"    판매량: 버거={sales[0]:.0f}, 튀김={sales[1]:.0f}, 콜라={sales[2]:.0f}")
     print(f"    행렬곱 결과:")
     print(f"      - 총수익: {revenue:,.0f}원")
@@ -260,6 +275,7 @@ def main() -> None:
     print(f"      - 최적 가중치 w: {res.w:.3f} (목표: 2.0)")
     print(f"      - 최적 편향 b: {res.b:.3f} (목표: 1.0)")
     print(f"      - 초기 손실: {res.losses[0]:.4f}")
+    # `losses[-1]` 은 파이썬 음수 인덱싱: 뒤에서 첫 번째 요소(= 마지막). 자바/C#에는 없는 문법.
     print(f"      - 최종 손실: {res.losses[-1]:.4f}")
     print(f"    손실이 감소했으므로 학습이 성공적으로 진행되었다!")
 

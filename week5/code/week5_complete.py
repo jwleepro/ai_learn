@@ -14,7 +14,7 @@
 - 데모: python week5/code/week5_complete.py --input week5/data/tiny_corpus_ko.txt
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가
 
 import argparse
 from dataclasses import dataclass
@@ -26,17 +26,21 @@ import numpy as np
 # 1. Utility Functions & Classes
 # ============================================================================
 
+# CharTokenizer: 파이썬 전용 문법(@dataclass, @property, @classmethod,
+# tuple[str, ...] 빌트인 제네릭, 컴프리헨션, 튜플 언패킹)을 사용한다.
 @dataclass
 class CharTokenizer:
     """글자 단위 토크나이저."""
     vocab: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        if len(self.vocab) == 0:
+            raise ValueError("vocab empty")
         self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
 
     @property
-    def vocab_size(self) -> int: return len(self.vocab)
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
     @classmethod
     def from_text(cls, text: str) -> CharTokenizer:
@@ -69,20 +73,23 @@ def layer_norm(x: np.ndarray, g: np.ndarray, b: np.ndarray, eps: float = 1e-5) -
 
 def multi_head_attention(x: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, Wo: np.ndarray, n_heads: int) -> np.ndarray:
     """Multi-Head Attention: 입력을 여러 헤드로 나누어 어텐션을 병렬로 계산합니다."""
+    # 튜플 언패킹: x.shape 는 (T, D) 튜플 → 두 변수에 한 번에 받음. 자바에는 없는 문법.
     T, D = x.shape
-    Dh = D // n_heads # Head dimension
-    
+    Dh = D // n_heads  # `//` 는 정수 나눗셈 연산자(파이썬 전용; 자바/C# 의 `/` 는 피연산자가 정수면 정수나눗셈, 여기와 다름)
+
     # Q, K, V 투영 및 헤드 분리
     # (T, D) @ (D, D) -> (T, D) -> (T, n_heads, Dh) -> (n_heads, T, Dh)
+    # `@` 는 행렬곱 연산자. .reshape/.transpose 는 넘파이 메서드.
     Q = (x @ Wq).reshape(T, n_heads, Dh).transpose(1, 0, 2)
     K = (x @ Wk).reshape(T, n_heads, Dh).transpose(1, 0, 2)
     V = (x @ Wv).reshape(T, n_heads, Dh).transpose(1, 0, 2)
-    
+
     # Scaled Dot-Product Attention
     scores = (Q @ K.transpose(0, 2, 1)) / np.sqrt(Dh)
-    
+
     # Causal Masking
     mask = np.triu(np.ones((T, T)), k=1).astype(bool)
+    # 넘파이 boolean indexing: mask 가 True 인 위치만 골라 한 번에 값 대입. 자바/C# 배열에는 없는 기능.
     scores[:, mask] = -1e9
     
     weights = softmax(scores, axis=-1)
@@ -140,14 +147,17 @@ def main() -> None:
     Wk = rng.normal(0, scale, (D, D))
     Wv = rng.normal(0, scale, (D, D))
     Wo = rng.normal(0, scale, (D, D))
-    ln1_g = np.ones(D); ln1_b = np.zeros(D)
-    
+    # LayerNorm 파라미터: g(=gain)는 1로, b(=bias)는 0으로 시작 (학습 전 항등 변환)
+    ln1_g = np.ones(D)
+    ln1_b = np.zeros(D)
+
     # FFN Params
     W1 = rng.normal(0, scale, (D, D * 4))
     b1 = np.zeros(D * 4)
     W2 = rng.normal(0, scale, (D * 4, D))
     b2 = np.zeros(D)
-    ln2_g = np.ones(D); ln2_b = np.zeros(D)
+    ln2_g = np.ones(D)
+    ln2_b = np.zeros(D)
 
     # Output Layer
     W_out = rng.normal(0, scale, (D, tokenizer.vocab_size))

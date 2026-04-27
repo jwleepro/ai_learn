@@ -14,7 +14,7 @@
 - 생성: python week2/code/week2_complete.py --generate
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가(전방 참조)
 
 import argparse
 from dataclasses import dataclass
@@ -26,17 +26,25 @@ import numpy as np
 # 1. Utility Functions & Classes
 # ============================================================================
 
+# 아래 토크나이저는 파이썬 특유의 문법을 여러 개 사용한다:
+# - @dataclass : 필드 선언만으로 __init__ 자동 생성 (자바 record 와 비슷)
+# - @property  : 메서드를 속성처럼 접근 (C# 의 get-only property)
+# - @classmethod : 첫 인자가 클래스 자체(cls)인 메서드 (자바 static factory 와 비슷)
+# - {k: v for ...} 딕셔너리 컴프리헨션, [x for ...] 리스트 컴프리헨션
+# - enumerate(seq) : (index, value) 쌍을 순회 / for i, ch in ... 는 튜플 언패킹
 @dataclass
 class CharTokenizer:
     """글자 단위 토크나이저."""
-    vocab: tuple[str, ...]
+    vocab: tuple[str, ...]  # `...` 은 "가변 길이 동질 튜플"이라는 뜻의 파이썬 타입 표기
 
     def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        if len(self.vocab) == 0:
+            raise ValueError("vocab empty")
         self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
 
     @property
-    def vocab_size(self) -> int: return len(self.vocab)
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
     @classmethod
     def from_text(cls, text: str) -> CharTokenizer:
@@ -46,6 +54,7 @@ class CharTokenizer:
         return [self.char_to_id[ch] for ch in text]
 
     def decode(self, ids: list[int]) -> str:
+        # 괄호 없는 `... for ...` 는 제너레이터 식; str.join 에 그대로 넘길 수 있다.
         return "".join(self.vocab[i] for i in ids)
 
 
@@ -73,12 +82,15 @@ def init_W(vocab_size: int, rng: np.random.Generator) -> np.ndarray:
 def train_step(W: np.ndarray, prev_ids: np.ndarray, next_ids: np.ndarray, lr: float) -> float:
     """한 번의 학습 스텝(순전파, 손실 계산, 역전파, 가중치 업데이트)을 수행합니다."""
     # 1. Forward Pass
-    logits = W[prev_ids] # (B, V)
+    # 넘파이 fancy indexing: W 가 (V, V) 일 때 W[prev_ids] 는 prev_ids 길이만큼의 행을 골라
+    # (B, V) 모양 배열을 만든다. 자바/C# 의 배열 인덱싱에는 없는 기능.
+    logits = W[prev_ids]
     probs = softmax(logits, axis=1)
-    
+
     # 2. Loss (Cross Entropy)
+    # probs[행 인덱스, 열 인덱스] 형태의 동시 인덱싱: 행마다 정답 열 하나씩만 뽑아 (B,) 모양으로 만든다.
     loss = -np.log(probs[np.arange(len(next_ids)), next_ids] + 1e-10).mean()
-    
+
     # 3. Backward Pass (Gradient)
     dlogits = probs.copy()
     dlogits[np.arange(len(next_ids)), next_ids] -= 1.0
@@ -134,9 +146,11 @@ def main() -> None:
             perm = rng.permutation(len(prev_ids))
             p_shuf = prev_ids[perm]
             n_shuf = next_ids[perm]
-            
+
             epoch_loss = 0.0
             steps = 0
+            # range(start, stop, step) 의 step 인자: 자바/C# 의 일반 for 루프와 같은 의미.
+            # 슬라이싱 `[start:end]` 도 파이썬 전용 표기.
             for start in range(0, len(p_shuf), BATCH_SIZE):
                 end = min(len(p_shuf), start + BATCH_SIZE)
                 loss = train_step(W, p_shuf[start:end], n_shuf[start:end], LR)

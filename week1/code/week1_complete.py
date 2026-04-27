@@ -14,7 +14,7 @@
 - 검사: python week1/code/week1_complete.py --inspect --char "가"
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가(전방 참조 가능)
 
 import argparse
 from dataclasses import dataclass
@@ -26,26 +26,42 @@ import numpy as np
 # 1. Utility Functions & Classes
 # ============================================================================
 
+# @dataclass: 데코레이터(자바 어노테이션과 표기는 비슷하지만 클래스를 실제로 변형).
+# 아래 `vocab: tuple[str, ...]` 같은 필드 선언만으로 __init__ 등이 자동 생성된다.
+# tuple[str, ...] 의 `...`(Ellipsis)는 "길이가 가변인 동질 튜플"을 뜻한다.
 @dataclass
 class CharTokenizer:
     """글자 단위 토크나이저."""
     vocab: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        if len(self.vocab) == 0:
+            raise ValueError("vocab empty")
+        # 딕셔너리 컴프리헨션: 자바/C#에는 없는 문법.
+        # enumerate(x) 는 (index, value) 쌍을 돌려준다 → for (i, ch) 형태로 분해(언패킹).
         self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
 
+    # @property: 메서드를 속성처럼 호출할 수 있게 한다 (tokenizer.vocab_size, 괄호 없이).
+    # C#의 get-only property 와 거의 같음. 자바는 getter 메서드로 풀어야 함.
     @property
-    def vocab_size(self) -> int: return len(self.vocab)
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
+    # @classmethod: 첫 인자가 인스턴스(self)가 아니라 클래스 자체(cls)인 메서드.
+    # 자바/C# 의 static factory 메서드와 비슷하지만, cls 를 통해 서브클래스도 자동 지원.
     @classmethod
     def from_text(cls, text: str) -> CharTokenizer:
+        # set(text) 는 중복 제거, sorted(...) 는 정렬된 리스트로 만든 뒤 tuple(...) 로 불변화.
         return cls(tuple(sorted(set(text))))
 
     def encode(self, text: str) -> list[int]:
+        # 리스트 컴프리헨션 [식 for x in 시퀀스]. 자바/C# 에는 없는 문법.
+        # 자바의 stream().map(...).toList() 또는 C# 의 LINQ Select(...).ToList() 와 의미가 같다.
         return [self.char_to_id[ch] for ch in text]
 
     def decode(self, ids: list[int]) -> str:
+        # 괄호 없이 쓴 `self.vocab[i] for i in ids` 는 제너레이터 식(lazy 시퀀스).
+        # str.join 은 자바 String.join, C# string.Join 과 같다.
         return "".join(self.vocab[i] for i in ids)
 
 
@@ -56,9 +72,11 @@ class CharTokenizer:
 def build_bigram_counts(token_ids: np.ndarray, vocab_size: int) -> np.ndarray:
     """토큰 시퀀스에서 빅램(두 글자 쌍) 등장 횟수를 행렬로 계산합니다."""
     counts = np.zeros((vocab_size, vocab_size), dtype=np.int64)
+    # 슬라이싱(파이썬/넘파이 전용): `[:-1]` 은 "마지막 1개 빼고 전부", `[1:]` 은 "첫 1개 빼고 전부".
+    # 자바/C# 에는 직접 대응되는 문법이 없어 보통 subList/Skip 등으로 풀어야 한다.
     prev_ids = token_ids[:-1]
     next_ids = token_ids[1:]
-    # np.add.at은 중복된 인덱스에 대해서도 올바르게 누적 합산을 수행합니다.
+    # np.add.at 은 넘파이 함수로, 중복된 인덱스에 대해서도 올바르게 누적 합산을 수행한다.
     np.add.at(counts, (prev_ids, next_ids), 1)
     return counts
 
@@ -146,6 +164,7 @@ def main() -> None:
         row = probs[char_id]
         
         # 확률이 높은 상위 10개 출력
+        # `[::-1]` 은 슬라이싱의 step=-1, 즉 "역순". `[:10]` 은 앞에서 10개. 자바/C# 에는 없는 표기.
         top_indices = np.argsort(row)[::-1][:10]
         print(f"--- '{args.char}' 뒤에 올 글자 확률 (상위 10개) ---")
         for idx in top_indices:
