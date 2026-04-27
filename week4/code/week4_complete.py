@@ -13,7 +13,7 @@
 - 데모: python week4/code/week4_complete.py --input week4/data/tiny_corpus_ko.txt
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가
 
 import argparse
 from dataclasses import dataclass
@@ -25,6 +25,10 @@ import numpy as np
 # 1. Utility Functions & Classes
 # ============================================================================
 
+# CharTokenizer 는 다음 파이썬 전용 문법을 사용한다:
+# - @dataclass / @property / @classmethod 데코레이터
+# - tuple[str, ...] 같은 빌트인 제네릭 타입 표기
+# - 딕셔너리/리스트 컴프리헨션, 튜플 언패킹, 제너레이터 식
 @dataclass
 class CharTokenizer:
     """글자 단위 토크나이저."""
@@ -73,10 +77,13 @@ def self_attention(X: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray
     """
     Query, Key, Value를 이용한 Self-Attention 계산
     X: (T, D), W: (D, Dh) -> Weights: (T, T), Output: (T, Dh)
+
+    반환값이 두 개라서 호출 측에서 `weights, out = self_attention(...)` 식의 튜플 언패킹이 가능.
     """
-    Q = X @ Wq # (T, Dh)
-    K = X @ Wk # (T, Dh)
-    V = X @ Wv # (T, Dh)
+    # `@` 연산자: 파이썬 3.5+ 의 행렬곱 전용 연산자. 일반 곱셈 `*` 와 구분된다.
+    Q = X @ Wq  # (T, Dh)
+    K = X @ Wk  # (T, Dh)
+    V = X @ Wv  # (T, Dh)
     
     Dh = Q.shape[1]
     # Dot-product 유사도 계산 및 스케일링
@@ -141,6 +148,7 @@ def main() -> None:
     
     print("\nAttention 가중치 (상위 5개):")
     row = weights[pos]
+    # `[::-1]` 슬라이싱(역순) + `[:5]` 슬라이싱(앞 5개). 파이썬 전용 표기.
     top_indices = np.argsort(row)[::-1][:5]
     for idx in top_indices:
         target_char = tokenizer.decode([ids[idx]])

@@ -15,7 +15,7 @@
 - 생성: python week3/code/week3_complete.py --generate
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가(전방 참조)
 
 import argparse
 import json
@@ -30,6 +30,12 @@ import numpy as np
 # 1. Utility Functions & Classes (Formerly external modules)
 # ============================================================================
 
+# CharTokenizer: 파이썬 전용 문법 정리
+# - @dataclass : 필드 선언만으로 __init__ 자동 생성 (자바 record 와 비슷)
+# - tuple[str, ...] : 가변 길이 동질 튜플 타입 표기
+# - @property / @classmethod : 속성 접근 메서드 / 클래스 팩토리 메서드
+# - {ch: i for i, ch in enumerate(...)} : 딕셔너리 컴프리헨션 + 튜플 언패킹
+# - [x for x in y] : 리스트 컴프리헨션
 @dataclass
 class CharTokenizer:
     """글자 단위 토크나이저."""
@@ -82,6 +88,8 @@ def make_context_dataset(token_ids: np.ndarray, context_len: int) -> tuple[np.nd
     return X, y
 
 
+# `int | None` 은 파이썬 3.10+ 의 union 타입 표기로 "int 또는 None" 을 뜻한다.
+# 자바의 Optional<Integer>, C# 의 int? 와 비슷한 의미.
 @dataclass
 class SamplingConfig:
     temperature: float = 1.0
@@ -101,7 +109,9 @@ def sample_from_probs(probs: np.ndarray, rng: np.random.Generator, cfg: Sampling
         p /= p.sum()
         
     if cfg.top_p is not None:
+        # `[::-1]` 은 슬라이싱 step=-1 → "역순". 자바/C# 에는 없는 표기.
         sorted_indices = np.argsort(p)[::-1]
+        # 넘파이 fancy indexing: 인덱스 배열로 한꺼번에 골라낸다.
         sorted_probs = p[sorted_indices]
         cumulative_probs = np.cumsum(sorted_probs)
         indices_to_remove = cumulative_probs > cfg.top_p
@@ -138,9 +148,11 @@ def init_params(vocab_size: int, context_len: int, embed_dim: int, hidden_dim: i
 
 
 def forward(params: MLPLMParams, X: np.ndarray) -> tuple[np.ndarray, dict]:
-    emb = params.E[X] # (B, C, D)
-    h_in = emb.reshape(len(X), -1) # (B, C*D)
-    h_pre = h_in @ params.W1 + params.b1
+    # 함수가 두 값을 한 번에 반환 → 호출 측에서 `a, b = forward(...)` 형태의 튜플 언패킹으로 받는다.
+    # 자바에는 없고 C# 의 ValueTuple deconstruction 과 비슷.
+    emb = params.E[X]  # (B, C, D)  ← 넘파이 fancy indexing
+    h_in = emb.reshape(len(X), -1)  # (B, C*D); reshape 의 -1 은 "남은 차원 자동 계산"
+    h_pre = h_in @ params.W1 + params.b1  # `@` 는 행렬곱 전용 연산자(파이썬 3.5+)
     h = np.tanh(h_pre)
     logits = h @ params.W2 + params.b2
     return logits, {"X": X, "h_in": h_in, "h_pre": h_pre, "h": h, "emb": emb}
@@ -234,9 +246,11 @@ def main() -> None:
         if not Path(args.model_path).exists():
             print(f"모델 파일이 없습니다. 먼저 --train을 실행하세요: {args.model_path}")
             return
-        
+
         # 모델 로드
         ckpt = np.load(args.model_path, allow_pickle=True)
+        # tuple(어떤_시퀀스) 처럼 "타입 이름을 함수로 호출"하는 변환 패턴은 파이썬 관용구.
+        # 자바/C# 의 명시적 캐스트나 new ArrayList<>(seq) 와 비슷한 역할.
         vocab = tuple(ckpt["vocab"])
         tokenizer = CharTokenizer(vocab)
         params = MLPLMParams(ckpt["E"], ckpt["W1"], ckpt["b1"], ckpt["W2"], ckpt["b2"])

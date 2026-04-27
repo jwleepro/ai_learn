@@ -13,7 +13,7 @@
 - 데모: python week7/code/week7_complete.py --demo
 """
 
-from __future__ import annotations
+from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가
 
 import argparse
 import json
@@ -27,30 +27,41 @@ from pathlib import Path
 # ============================================================================
 
 class BPETokenizer:
+    # 타입 힌트: dict[int, bytes] 는 자바의 Map<Integer, byte[]> 와 같은 의미.
+    # dict[tuple[int, int], int] 처럼 튜플도 그대로 키 타입이 될 수 있는 점이 파이썬 특징.
     def __init__(self, vocab: dict[int, bytes], merges: dict[tuple[int, int], int]):
-        self.vocab = vocab # id -> bytes
-        self.merges = merges # (id, id) -> merged_id
-        
+        self.vocab = vocab  # id -> bytes
+        self.merges = merges  # (id, id) -> merged_id
+
+    # @classmethod : 첫 인자가 클래스 자체(cls). 자바 static factory 와 비슷.
     @classmethod
     def train(cls, text: str, vocab_size: int) -> BPETokenizer:
         """BPE 알고리즘을 사용하여 토크나이저를 학습합니다."""
         # 1. 초기 어휘 사전: 각 바이트(0-255)를 개별 토큰으로 설정
+        # text.encode("utf-8") 은 str → bytes 변환. list(bytes) 는 0~255 정수 리스트.
         tokens = list(text.encode("utf-8"))
+        # 딕셔너리 컴프리헨션. bytes([i]) 는 정수 i 하나를 담은 1바이트 객체를 만든다.
         vocab = {i: bytes([i]) for i in range(256)}
         merges = {}
-        
+
         num_merges = vocab_size - 256
         current_ids = list(tokens)
-        
+
         for i in range(num_merges):
-            # 가장 빈번한 인접 쌍 찾기
+            # 가장 빈번한 인접 쌍 찾기.
+            # collections.Counter 는 dict 의 서브클래스로 기본값 0 을 자동 제공한다.
             stats = collections.Counter()
+            # zip(a, b) 는 두 시퀀스에서 같은 위치 원소를 묶어 (a[i], b[i]) 튜플로 돌려준다.
+            # current_ids 와 current_ids[1:] 를 zip 하면 인접한 (앞, 뒤) 쌍이 만들어진다.
             for pair in zip(current_ids, current_ids[1:]):
                 stats[pair] += 1
-            
+
+            # 빈 dict/Counter 는 파이썬에서 `not stats` 가 True. 자바/C# 의 isEmpty() 에 해당.
             if not stats:
                 break
-                
+
+            # max(컬렉션, key=함수) : 키 함수가 돌려주는 값이 가장 큰 원소를 반환.
+            # stats.get 을 그대로 함수 객체로 넘기는 1급 함수(first-class function) 활용.
             top_pair = max(stats, key=stats.get)
             new_id = 256 + i
             
@@ -73,8 +84,9 @@ class BPETokenizer:
             current_ids = new_ids
             
             if (i + 1) % 50 == 0:
+                # f-string: C# 의 보간 문자열 $"...{x}..." 와 비슷. 자바에는 직접 대응 없음.
                 print(f"Merge {i+1}/{num_merges}: {top_pair} -> {new_id} ({vocab[new_id].decode('utf-8', errors='replace')})")
-                
+
         return cls(vocab, merges)
 
     def encode(self, text: str) -> list[int]:
@@ -112,6 +124,7 @@ class BPETokenizer:
 
     def decode(self, ids: list[int]) -> str:
         """토큰 ID들을 바이트 시퀀스로 결합한 후 텍스트로 디코딩합니다."""
+        # 리스트 컴프리헨션. b"".join(...) 의 b"" 는 "빈 bytes 리터럴" (str 의 "" 와 별도 타입).
         parts = [self.vocab[idx] for idx in ids]
         return b"".join(parts).decode("utf-8", errors="replace")
 
@@ -122,6 +135,7 @@ class BPETokenizer:
         - vocab의 bytes 값은 hex 문자열로,
         - merges의 (id, id) 키는 "id1,id2" 형태 문자열로 변환한다.
         """
+        # dict.items() 는 (key, value) 쌍을 돌려주는 view → 컴프리헨션의 `for k, v in ...` 로 언패킹.
         data = {
             "vocab": {str(k): v.hex() for k, v in self.vocab.items()},
             "merges": {f"{k[0]},{k[1]}": v for k, v in self.merges.items()},
@@ -134,6 +148,8 @@ class BPETokenizer:
         vocab = {int(k): bytes.fromhex(v) for k, v in data["vocab"].items()}
         merges = {}
         for k, v in data["merges"].items():
+            # map(함수, 시퀀스) 는 각 원소에 함수를 적용한 lazy iterator.
+            # 여기서는 "12,34" 를 split 한 두 문자열을 int 로 변환한 뒤 튜플 언패킹으로 받음.
             p1, p2 = map(int, k.split(","))
             merges[(p1, p2)] = v
         return cls(vocab, merges)
