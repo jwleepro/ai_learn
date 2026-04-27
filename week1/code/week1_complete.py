@@ -32,11 +32,13 @@ class CharTokenizer:
     vocab: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        if len(self.vocab) == 0:
+            raise ValueError("vocab empty")
         self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
 
     @property
-    def vocab_size(self) -> int: return len(self.vocab)
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
     @classmethod
     def from_text(cls, text: str) -> CharTokenizer:

@@ -115,11 +115,16 @@ class BPETokenizer:
         parts = [self.vocab[idx] for idx in ids]
         return b"".join(parts).decode("utf-8", errors="replace")
 
-    def save(self, path: str):
-        # JSON 저장을 위해 튜플 키를 문자열로 변환
+    def save(self, path: str) -> None:
+        """학습된 vocab과 merges 규칙을 JSON 파일로 저장한다.
+
+        JSON은 튜플 키를 그대로 못 쓰므로
+        - vocab의 bytes 값은 hex 문자열로,
+        - merges의 (id, id) 키는 "id1,id2" 형태 문자열로 변환한다.
+        """
         data = {
             "vocab": {str(k): v.hex() for k, v in self.vocab.items()},
-            "merges": {f"{k[0]},{k[1]}": v for k, v in self.merges.items()}
+            "merges": {f"{k[0]},{k[1]}": v for k, v in self.merges.items()},
         }
         Path(path).write_text(json.dumps(data, indent=2))
 

@@ -78,7 +78,7 @@ def main() -> None:
             if args.expect_json:
                 try:
                     json.loads(data["output"])
-                except:
+                except json.JSONDecodeError:
                     print(f"라인 {i} 에러: output이 JSON 형식이 아님")
                     error_count += 1
                     continue

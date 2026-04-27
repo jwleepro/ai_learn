@@ -30,6 +30,8 @@ def softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
     """
     if logits.size == 0:
         raise ValueError("logits must not be empty")
+
+    # max-shift: 가장 큰 값을 빼서 exp 계산 시 오버플로우를 막는다.
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
@@ -39,6 +41,7 @@ def log_softmax(logits: np.ndarray, *, axis: int = -1) -> np.ndarray:
     """로그 소프트맥스 함수입니다."""
     if logits.size == 0:
         raise ValueError("logits must not be empty")
+
     shifted = logits - logits.max(axis=axis, keepdims=True)
     logsumexp = np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
     return shifted - logsumexp

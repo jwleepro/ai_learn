@@ -32,11 +32,13 @@ class CharTokenizer:
     vocab: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        if len(self.vocab) == 0:
+            raise ValueError("vocab empty")
         self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
 
     @property
-    def vocab_size(self) -> int: return len(self.vocab)
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
     @classmethod
     def from_text(cls, text: str) -> CharTokenizer:
@@ -140,14 +142,17 @@ def main() -> None:
     Wk = rng.normal(0, scale, (D, D))
     Wv = rng.normal(0, scale, (D, D))
     Wo = rng.normal(0, scale, (D, D))
-    ln1_g = np.ones(D); ln1_b = np.zeros(D)
-    
+    # LayerNorm 파라미터: g(=gain)는 1로, b(=bias)는 0으로 시작 (학습 전 항등 변환)
+    ln1_g = np.ones(D)
+    ln1_b = np.zeros(D)
+
     # FFN Params
     W1 = rng.normal(0, scale, (D, D * 4))
     b1 = np.zeros(D * 4)
     W2 = rng.normal(0, scale, (D * 4, D))
     b2 = np.zeros(D)
-    ln2_g = np.ones(D); ln2_b = np.zeros(D)
+    ln2_g = np.ones(D)
+    ln2_b = np.zeros(D)
 
     # Output Layer
     W_out = rng.normal(0, scale, (D, tokenizer.vocab_size))

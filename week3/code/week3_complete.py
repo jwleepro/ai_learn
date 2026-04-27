@@ -36,11 +36,13 @@ class CharTokenizer:
     vocab: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if len(self.vocab) == 0: raise ValueError("vocab empty")
+        if len(self.vocab) == 0:
+            raise ValueError("vocab empty")
         self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
 
     @property
-    def vocab_size(self) -> int: return len(self.vocab)
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
     @classmethod
     def from_text(cls, text: str) -> CharTokenizer:
@@ -65,6 +67,12 @@ def log_softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
 
 
 def make_context_dataset(token_ids: np.ndarray, context_len: int) -> tuple[np.ndarray, np.ndarray]:
+    """슬라이딩 윈도우로 (입력 컨텍스트, 다음 글자) 쌍을 만든다.
+
+    예) token_ids=[1,2,3,4,5], context_len=3 이면
+        X = [[1,2,3], [2,3,4]]
+        y = [4, 5]
+    """
     n = len(token_ids) - context_len
     X = np.empty((n, context_len), dtype=np.int64)
     y = np.empty((n,), dtype=np.int64)
@@ -161,14 +169,14 @@ def train_step(params: MLPLMParams, X: np.ndarray, y: np.ndarray, lr: float) -> 
     
     dh_in = dh_pre @ params.W1.T
     dEmb = dh_in.reshape(cache["emb"].shape)
-    
-    # E update (sparse)
-    np.add.at(params.E, cache["X"], dEmb) # This is actually grad, need to subtract
-    # Wait, the above adds to E. Let's do it properly:
+
+    # 임베딩 그래디언트는 토큰 ID마다 등장 횟수만큼 누적되어야 한다.
+    # X에 같은 ID가 여러 번 나오면 dEmb의 해당 위치들이 모두 더해진다.
+    # np.add.at은 일반 += 와 달리 인덱스 중복도 정확히 누적해 준다.
     dE = np.zeros_like(params.E)
     np.add.at(dE, cache["X"], dEmb)
-    
-    # Update params
+
+    # 모든 파라미터를 학습률 lr 만큼 그래디언트 반대 방향으로 이동시킨다.
     params.W2 -= lr * dW2
     params.b2 -= lr * db2
     params.W1 -= lr * dW1
