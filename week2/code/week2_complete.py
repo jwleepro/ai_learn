@@ -1,107 +1,122 @@
 """Week 2 Complete: Neural Bigram Language Model.
 
-이 파일은 신경망 기반 빅램 언어모델의 모든 과정(토크나이저, 데이터셋 생성, 모델 구현, 학습, 생성)을
-하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
+신경망 빅램 언어모델: week1 의 빅램과 같은 입력/출력이지만,
+"빈도수 표"를 직접 만드는 대신 "학습 가능한 가중치 행렬 W (V x V)" 를 둔다.
 
-주요 내용:
-1. CharTokenizer: 글자 단위 토크나이저
-2. Neural Bigram Model: 학습 가능한 가중치 행렬 W (V, V)를 이용한 모델
-3. Training: SGD(확률적 경사 하강법)를 이용한 학습 (Numpy 구현)
-4. Generation: 학습된 모델을 이용한 텍스트 생성 (Temperature 조절)
+학습:
+- 손실(cross entropy)이 낮아지는 쪽으로 W 를 조금씩 조정한다.
+- 결국 W[i] 의 softmax 가 "글자 i 다음에 올 글자들의 확률" 이 된다.
+- 빅램 카운트 방식과 수학적으로 같은 답에 수렴하지만,
+  신경망의 학습 절차(forward / loss / backward / update)를 그대로 연습할 수 있다.
 
 실행 방법:
 - 학습: python week2/code/week2_complete.py --train
 - 생성: python week2/code/week2_complete.py --generate
 """
 
-from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가(전방 참조)
-
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 
 
 # ============================================================================
-# 1. Utility Functions & Classes
+# 1. CharTokenizer + 공통 함수
 # ============================================================================
 
-# 아래 토크나이저는 파이썬 특유의 문법을 여러 개 사용한다:
-# - @dataclass : 필드 선언만으로 __init__ 자동 생성 (자바 record 와 비슷)
-# - @property  : 메서드를 속성처럼 접근 (C# 의 get-only property)
-# - @classmethod : 첫 인자가 클래스 자체(cls)인 메서드 (자바 static factory 와 비슷)
-# - {k: v for ...} 딕셔너리 컴프리헨션, [x for ...] 리스트 컴프리헨션
-# - enumerate(seq) : (index, value) 쌍을 순회 / for i, ch in ... 는 튜플 언패킹
-@dataclass
 class CharTokenizer:
-    """글자 단위 토크나이저."""
-    vocab: tuple[str, ...]  # `...` 은 "가변 길이 동질 튜플"이라는 뜻의 파이썬 타입 표기
+    """글자 단위 토크나이저 (week1 과 동일, 설명은 week1 파일 참조)."""
 
-    def __post_init__(self) -> None:
-        if len(self.vocab) == 0:
+    def __init__(self, vocab):
+        if len(vocab) == 0:
             raise ValueError("vocab empty")
-        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+        self.vocab = vocab
 
-    @property
-    def vocab_size(self) -> int:
+        self.char_to_id = {}
+        for i in range(len(vocab)):
+            self.char_to_id[vocab[i]] = i
+
+    def vocab_size(self):
         return len(self.vocab)
 
-    @classmethod
-    def from_text(cls, text: str) -> CharTokenizer:
-        return cls(tuple(sorted(set(text))))
+    def encode(self, text):
+        ids = []
+        for ch in text:
+            ids.append(self.char_to_id[ch])
+        return ids
 
-    def encode(self, text: str) -> list[int]:
-        return [self.char_to_id[ch] for ch in text]
+    def decode(self, ids):
+        chars = []
+        for token_id in ids:
+            chars.append(self.vocab[token_id])
+        return "".join(chars)
 
-    def decode(self, ids: list[int]) -> str:
-        # 괄호 없는 `... for ...` 는 제너레이터 식; str.join 에 그대로 넘길 수 있다.
-        return "".join(self.vocab[i] for i in ids)
+
+def build_tokenizer_from_text(text):
+    unique_chars = sorted(set(text))
+    return CharTokenizer(unique_chars)
 
 
-def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
+def softmax(logits, axis=-1):
+    """logits(점수) -> 확률.
+
+    수식: softmax(x_i) = exp(x_i) / sum(exp(x_j))
+    큰 값을 빼는 max-shift 는 exp 가 너무 커지는 걸 막는 트릭.
+    """
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
-def log_softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
-    shifted = logits - logits.max(axis=axis, keepdims=True)
-    return shifted - np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
-
-
 # ============================================================================
-# 2. Neural Bigram Model Implementation
+# 2. Neural Bigram Model
 # ============================================================================
 
-def init_W(vocab_size: int, rng: np.random.Generator) -> np.ndarray:
-    """가중치 행렬 W를 작은 난수로 초기화합니다."""
-    scale = 0.01
-    return rng.normal(0.0, scale, size=(vocab_size, vocab_size))
+def init_W(vocab_size, rng):
+    """가중치 행렬 W (V x V) 를 작은 난수로 초기화."""
+    return rng.normal(loc=0.0, scale=0.01, size=(vocab_size, vocab_size))
 
 
-def train_step(W: np.ndarray, prev_ids: np.ndarray, next_ids: np.ndarray, lr: float) -> float:
-    """한 번의 학습 스텝(순전파, 손실 계산, 역전파, 가중치 업데이트)을 수행합니다."""
-    # 1. Forward Pass
-    # 넘파이 fancy indexing: W 가 (V, V) 일 때 W[prev_ids] 는 prev_ids 길이만큼의 행을 골라
-    # (B, V) 모양 배열을 만든다. 자바/C# 의 배열 인덱싱에는 없는 기능.
+def train_step(W, prev_ids, next_ids, lr):
+    """학습 한 스텝: forward -> loss -> backward -> 가중치 업데이트.
+
+    배치 크기 B 에 대해
+    - prev_ids: 입력 글자 ID 들 (B,)
+    - next_ids: 정답 다음 글자 ID 들 (B,)
+    - W: (V, V) 가중치 행렬
+    """
+    batch_size = len(prev_ids)
+
+    # 1) Forward Pass
+    # W[prev_ids]: 넘파이 fancy indexing.
+    # prev_ids 가 (B,) 모양이면 W[prev_ids] 는 (B, V) 모양이 된다.
+    # 자바로 풀면: for i in 0..B-1: logits[i] = W[prev_ids[i]]
     logits = W[prev_ids]
-    probs = softmax(logits, axis=1)
+    probs = softmax(logits, axis=1)  # 행마다 softmax -> (B, V)
 
-    # 2. Loss (Cross Entropy)
-    # probs[행 인덱스, 열 인덱스] 형태의 동시 인덱싱: 행마다 정답 열 하나씩만 뽑아 (B,) 모양으로 만든다.
-    loss = -np.log(probs[np.arange(len(next_ids)), next_ids] + 1e-10).mean()
+    # 2) Loss (Cross Entropy)
+    # 정답 위치의 확률만 모아서 -log 평균을 낸다.
+    correct_probs = np.zeros(batch_size)
+    for i in range(batch_size):
+        correct_probs[i] = probs[i, next_ids[i]]
+    loss = -np.log(correct_probs + 1e-10).mean()
 
-    # 3. Backward Pass (Gradient)
+    # 3) Backward Pass (그래디언트 계산)
+    # softmax + cross entropy 의 잘 알려진 결과: dL/dlogits = (probs - one_hot) / B
     dlogits = probs.copy()
-    dlogits[np.arange(len(next_ids)), next_ids] -= 1.0
-    dlogits /= len(next_ids)
-    
-    # 4. Update W
-    # dL/dW[i, :] = dL/dlogits를 prev_id=i인 샘플들에 대해 누적
+    for i in range(batch_size):
+        dlogits[i, next_ids[i]] -= 1.0
+    dlogits = dlogits / batch_size
+
+    # 4) W 의 그래디언트 계산
+    # logits[i] = W[prev_ids[i]] 였으므로 dW[prev_ids[i]] += dlogits[i] 가 된다.
     grad_W = np.zeros_like(W)
-    np.add.at(grad_W, prev_ids, dlogits)
+    for i in range(batch_size):
+        grad_W[prev_ids[i]] += dlogits[i]
+
+    # 5) 가중치 업데이트 (경사하강법)
+    # W = W - learning_rate * gradient
     W -= lr * grad_W
-    
+
     return float(loss)
 
 
@@ -109,7 +124,7 @@ def train_step(W: np.ndarray, prev_ids: np.ndarray, next_ids: np.ndarray, lr: fl
 # 3. Main Execution Flow
 # ============================================================================
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", action="store_true", help="학습 실행")
     parser.add_argument("--generate", action="store_true", help="생성 실행")
@@ -123,42 +138,50 @@ def main() -> None:
         print(f"데이터 파일이 없습니다: {data_path}")
         return
     text = data_path.read_text(encoding="utf-8")
-    tokenizer = CharTokenizer.from_text(text)
+    tokenizer = build_tokenizer_from_text(text)
     ids = np.array(tokenizer.encode(text))
-    
-    # (이전 글자, 다음 글자) 쌍 생성
+
+    # (이전 글자, 다음 글자) 쌍 만들기
+    # ids[:-1]: 마지막 한 개 제외 / ids[1:]: 첫 한 개 제외
     prev_ids = ids[:-1]
     next_ids = ids[1:]
 
     # 하이퍼파라미터
-    V = tokenizer.vocab_size
-    LR = 2.0
-    EPOCHS = 40
-    BATCH_SIZE = 2048
+    vocab_size = tokenizer.vocab_size()
+    learning_rate = 2.0
+    epochs = 40
+    batch_size = 2048
 
     if args.train:
-        print(f"--- 신경망 빅램 학습 시작 (Vocab: {V}) ---")
+        print(f"--- 신경망 빅램 학습 시작 (Vocab: {vocab_size}) ---")
         rng = np.random.default_rng(42)
-        W = init_W(V, rng)
+        W = init_W(vocab_size, rng)
 
-        for epoch in range(EPOCHS):
-            # 데이터를 섞음
-            perm = rng.permutation(len(prev_ids))
-            p_shuf = prev_ids[perm]
-            n_shuf = next_ids[perm]
+        for epoch in range(epochs):
+            # 매 에폭마다 데이터 순서를 섞음
+            shuffle_idx = rng.permutation(len(prev_ids))
+            prev_shuffled = prev_ids[shuffle_idx]
+            next_shuffled = next_ids[shuffle_idx]
 
             epoch_loss = 0.0
-            steps = 0
-            # range(start, stop, step) 의 step 인자: 자바/C# 의 일반 for 루프와 같은 의미.
-            # 슬라이싱 `[start:end]` 도 파이썬 전용 표기.
-            for start in range(0, len(p_shuf), BATCH_SIZE):
-                end = min(len(p_shuf), start + BATCH_SIZE)
-                loss = train_step(W, p_shuf[start:end], n_shuf[start:end], LR)
+            num_steps = 0
+
+            # 배치 단위로 잘라서 학습
+            start = 0
+            while start < len(prev_shuffled):
+                end = min(start + batch_size, len(prev_shuffled))
+                batch_prev = prev_shuffled[start:end]
+                batch_next = next_shuffled[start:end]
+
+                loss = train_step(W, batch_prev, batch_next, learning_rate)
                 epoch_loss += loss
-                steps += 1
-            
+                num_steps += 1
+
+                start = end
+
             if (epoch + 1) % 5 == 0:
-                print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {epoch_loss/steps:.4f}")
+                avg_loss = epoch_loss / num_steps
+                print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
         # 모델 저장
         np.savez(args.model_path, W=W, vocab=tokenizer.vocab)
@@ -166,28 +189,30 @@ def main() -> None:
 
     elif args.generate:
         if not Path(args.model_path).exists():
-            print(f"모델 파일이 없습니다. 먼저 --train을 실행하세요: {args.model_path}")
+            print(f"모델 파일이 없습니다. 먼저 --train 을 실행하세요: {args.model_path}")
             return
-        
+
         # 모델 로드
         ckpt = np.load(args.model_path, allow_pickle=True)
         W = ckpt["W"]
-        vocab = tuple(ckpt["vocab"])
+        # ckpt["vocab"] 은 numpy 배열로 저장돼 있어서 다시 list 로 변환
+        vocab = list(ckpt["vocab"])
         tokenizer = CharTokenizer(vocab)
 
         print("--- 텍스트 생성 시작 ---")
         rng = np.random.default_rng()
-        current_id = ids[0] # 데이터의 첫 글자로 시작
+
+        # 시작 글자: 데이터의 첫 글자
+        current_id = int(ids[0])
         generated_ids = [current_id]
-        
+
         for _ in range(100):
             logits = W[current_id]
             probs = softmax(logits)
-            # 온도는 1.0으로 고정하거나 옵션으로 뺄 수 있음
             next_id = int(rng.choice(len(probs), p=probs))
             generated_ids.append(next_id)
             current_id = next_id
-        
+
         print(f"Generated: {tokenizer.decode(generated_ids)}")
 
     else:

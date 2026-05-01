@@ -1,117 +1,160 @@
 """Week 5 Complete: Transformer Forward Pass.
 
-이 파일은 트랜스포머(Transformer) 모델의 핵심 구조와 Forward Pass 과정을
-하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
+Transformer 한 블록의 forward (학습은 안 함).
 
-주요 내용:
-1. CharTokenizer: 글자 단위 토크나이저
-2. Multi-Head Attention (MHA): 병렬 어텐션 계산
-3. Feed-Forward Network (FFN): 비선형 변환 층
-4. Transformer Block: MHA와 FFN을 결합한 기본 단위 (Residual & LayerNorm 포함)
-5. Forward Pass: 입력 토큰으로부터 최종 예측 점수(Logits)까지의 전체 경로
+흐름:
+1. 입력 임베딩 + 위치 임베딩
+2. (LayerNorm -> Multi-Head Attention -> 잔차 연결)
+3. (LayerNorm -> Feed-Forward -> 잔차 연결)
+4. 출력 선형층 -> 다음 글자 logits
+
+Multi-Head Attention 의 핵심:
+- D 차원을 H 개 헤드로 나누어 (각 헤드 차원 Dh = D/H) 병렬로 attention.
+- 헤드마다 다른 패턴을 학습할 수 있게 됨.
 
 실행 방법:
 - 데모: python week5/code/week5_complete.py --input week5/data/tiny_corpus_ko.txt
 """
 
-from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가
-
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 
 
 # ============================================================================
-# 1. Utility Functions & Classes
+# 1. CharTokenizer + softmax + LayerNorm
 # ============================================================================
 
-# CharTokenizer: 파이썬 전용 문법(@dataclass, @property, @classmethod,
-# tuple[str, ...] 빌트인 제네릭, 컴프리헨션, 튜플 언패킹)을 사용한다.
-@dataclass
 class CharTokenizer:
-    """글자 단위 토크나이저."""
-    vocab: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if len(self.vocab) == 0:
+    def __init__(self, vocab):
+        if len(vocab) == 0:
             raise ValueError("vocab empty")
-        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+        self.vocab = vocab
 
-    @property
-    def vocab_size(self) -> int:
+        self.char_to_id = {}
+        for i in range(len(vocab)):
+            self.char_to_id[vocab[i]] = i
+
+    def vocab_size(self):
         return len(self.vocab)
 
-    @classmethod
-    def from_text(cls, text: str) -> CharTokenizer:
-        return cls(tuple(sorted(set(text))))
+    def encode(self, text):
+        ids = []
+        for ch in text:
+            ids.append(self.char_to_id[ch])
+        return ids
 
-    def encode(self, text: str) -> list[int]:
-        return [self.char_to_id[ch] for ch in text]
+    def decode(self, ids):
+        chars = []
+        for token_id in ids:
+            chars.append(self.vocab[token_id])
+        return "".join(chars)
 
-    def decode(self, ids: list[int]) -> str:
-        return "".join(self.vocab[i] for i in ids)
+
+def build_tokenizer_from_text(text):
+    return CharTokenizer(sorted(set(text)))
 
 
-def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
+def softmax(logits, axis=-1):
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
-def layer_norm(x: np.ndarray, g: np.ndarray, b: np.ndarray, eps: float = 1e-5) -> np.ndarray:
-    """Layer Normalization: 각 샘플(행)의 평균과 분산을 이용해 정규화합니다."""
+def layer_norm(x, gain, bias, eps=1e-5):
+    """Layer Normalization: 각 행(샘플)의 평균과 분산을 이용해 정규화.
+
+    수식 (한 행에 대해):
+        mean = avg(x), var = var(x)
+        x_hat = (x - mean) / sqrt(var + eps)
+        output = gain * x_hat + bias
+    """
     mean = x.mean(axis=-1, keepdims=True)
     var = x.var(axis=-1, keepdims=True)
     x_hat = (x - mean) / np.sqrt(var + eps)
-    return g * x_hat + b
+    return gain * x_hat + bias
 
 
 # ============================================================================
-# 2. Transformer Components Implementation
+# 2. Multi-Head Attention (배치 차원 없이 단일 시퀀스)
 # ============================================================================
 
-def multi_head_attention(x: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, Wo: np.ndarray, n_heads: int) -> np.ndarray:
-    """Multi-Head Attention: 입력을 여러 헤드로 나누어 어텐션을 병렬로 계산합니다."""
-    # 튜플 언패킹: x.shape 는 (T, D) 튜플 → 두 변수에 한 번에 받음. 자바에는 없는 문법.
-    T, D = x.shape
-    Dh = D // n_heads  # `//` 는 정수 나눗셈 연산자(파이썬 전용; 자바/C# 의 `/` 는 피연산자가 정수면 정수나눗셈, 여기와 다름)
+def multi_head_attention(x, Wq, Wk, Wv, Wo, n_heads):
+    """Multi-Head Attention.
 
-    # Q, K, V 투영 및 헤드 분리
-    # (T, D) @ (D, D) -> (T, D) -> (T, n_heads, Dh) -> (n_heads, T, Dh)
-    # `@` 는 행렬곱 연산자. .reshape/.transpose 는 넘파이 메서드.
-    Q = (x @ Wq).reshape(T, n_heads, Dh).transpose(1, 0, 2)
-    K = (x @ Wk).reshape(T, n_heads, Dh).transpose(1, 0, 2)
-    V = (x @ Wv).reshape(T, n_heads, Dh).transpose(1, 0, 2)
+    입력:  x   (T, D)
+    출력: out  (T, D)
 
-    # Scaled Dot-Product Attention
-    scores = (Q @ K.transpose(0, 2, 1)) / np.sqrt(Dh)
+    내부 단계:
+    1) 선형 투영으로 Q/K/V 를 만든다.
+    2) D 차원을 H 개 헤드로 쪼갠다 (헤드별 차원 Dh = D / H).
+    3) 헤드마다 attention 점수 -> causal mask -> softmax -> 가중평균.
+    4) 헤드 결과를 다시 이어붙이고 출력 투영 Wo.
+    """
+    seq_len = x.shape[0]
+    model_dim = x.shape[1]
+    head_dim = model_dim // n_heads
 
-    # Causal Masking
-    mask = np.triu(np.ones((T, T)), k=1).astype(bool)
-    # 넘파이 boolean indexing: mask 가 True 인 위치만 골라 한 번에 값 대입. 자바/C# 배열에는 없는 기능.
-    scores[:, mask] = -1e9
-    
-    weights = softmax(scores, axis=-1)
-    attn_out = weights @ V # (n_heads, T, Dh)
-    
-    # 헤드 결합 및 최종 투영
-    # (n_heads, T, Dh) -> (T, n_heads, Dh) -> (T, D)
-    combined = attn_out.transpose(1, 0, 2).reshape(T, D)
+    # 1) Q, K, V 만들기 (T, D)
+    Q_full = x @ Wq
+    K_full = x @ Wk
+    V_full = x @ Wv
+
+    # 2) 헤드별 결과를 모아둘 빈 배열 (n_heads, T, Dh)
+    Q = np.empty((n_heads, seq_len, head_dim))
+    K = np.empty((n_heads, seq_len, head_dim))
+    V = np.empty((n_heads, seq_len, head_dim))
+    for h in range(n_heads):
+        # h번째 헤드는 D 차원 중 [h*Dh : (h+1)*Dh] 구간을 담당
+        col_start = h * head_dim
+        col_end = (h + 1) * head_dim
+        Q[h] = Q_full[:, col_start:col_end]
+        K[h] = K_full[:, col_start:col_end]
+        V[h] = V_full[:, col_start:col_end]
+
+    # 3) 헤드별로 attention 계산
+    attn_outputs = np.empty((n_heads, seq_len, head_dim))
+    for h in range(n_heads):
+        # (T, Dh) @ (Dh, T) -> (T, T)
+        scores = (Q[h] @ K[h].T) / np.sqrt(head_dim)
+
+        # Causal mask: 미래 위치(j > i)는 -1e9 로
+        for i in range(seq_len):
+            for j in range(seq_len):
+                if j > i:
+                    scores[i, j] = -1e9
+
+        weights = softmax(scores, axis=1)   # (T, T)
+        attn_outputs[h] = weights @ V[h]    # (T, Dh)
+
+    # 4) 헤드 결과 이어붙이기 (T, D)
+    combined = np.empty((seq_len, model_dim))
+    for h in range(n_heads):
+        col_start = h * head_dim
+        col_end = (h + 1) * head_dim
+        combined[:, col_start:col_end] = attn_outputs[h]
+
+    # 출력 투영
     return combined @ Wo
 
 
-def feed_forward(x: np.ndarray, W1: np.ndarray, b1: np.ndarray, W2: np.ndarray, b2: np.ndarray) -> np.ndarray:
-    """Position-wise Feed-Forward Network: 각 위치마다 독립적으로 적용되는 2층 신경망입니다."""
-    h = np.maximum(0, x @ W1 + b1) # ReLU activation
+# ============================================================================
+# 3. Feed-Forward Network
+# ============================================================================
+
+def feed_forward(x, W1, b1, W2, b2):
+    """위치별로 동일하게 적용되는 2층 신경망 (선형 -> ReLU -> 선형)."""
+    h = x @ W1 + b1
+    # ReLU: 음수는 0 으로
+    h = np.maximum(0, h)
     return h @ W2 + b2
 
 
 # ============================================================================
-# 3. Main Execution Flow
+# 4. Main Execution Flow
 # ============================================================================
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="입력 텍스트 파일 경로")
     parser.add_argument("--tokens", type=int, default=32, help="처리할 토큰 수")
@@ -119,72 +162,73 @@ def main() -> None:
     parser.add_argument("--n_heads", type=int, default=4, help="어텐션 헤드 수")
     args = parser.parse_args()
 
-    # 데이터 로드
     data_path = Path(args.input)
     if not data_path.exists():
         print(f"데이터 파일이 없습니다: {data_path}")
         return
     text = data_path.read_text(encoding="utf-8")
-    tokenizer = CharTokenizer.from_text(text)
+    tokenizer = build_tokenizer_from_text(text)
+
     ids = tokenizer.encode(text)[:args.tokens]
-    T = len(ids)
-    D = args.d_model
-    H = args.n_heads
+    seq_len = len(ids)
+    model_dim = args.d_model
+    n_heads = args.n_heads
 
-    print(f"--- Transformer Forward Demo (T={T}, D={D}, Heads={H}) ---")
+    print(f"--- Transformer Forward Demo (T={seq_len}, D={model_dim}, Heads={n_heads}) ---")
 
-    # 1. 파라미터 초기화 (데모를 위해 랜덤 가중치 사용)
+    # 1) 파라미터 초기화 (데모용 랜덤 가중치)
     rng = np.random.default_rng(42)
     scale = 0.02
-    
-    # Embedding & Positional Embedding
-    tok_emb = rng.normal(0, scale, (tokenizer.vocab_size, D))
-    pos_emb = rng.normal(0, scale, (T, D))
-    
-    # Layer 1 Params (Simplified)
-    # MHA Params
-    Wq = rng.normal(0, scale, (D, D))
-    Wk = rng.normal(0, scale, (D, D))
-    Wv = rng.normal(0, scale, (D, D))
-    Wo = rng.normal(0, scale, (D, D))
-    # LayerNorm 파라미터: g(=gain)는 1로, b(=bias)는 0으로 시작 (학습 전 항등 변환)
-    ln1_g = np.ones(D)
-    ln1_b = np.zeros(D)
 
-    # FFN Params
-    W1 = rng.normal(0, scale, (D, D * 4))
-    b1 = np.zeros(D * 4)
-    W2 = rng.normal(0, scale, (D * 4, D))
-    b2 = np.zeros(D)
-    ln2_g = np.ones(D)
-    ln2_b = np.zeros(D)
+    # 임베딩 + 위치 임베딩
+    tok_emb = rng.normal(0, scale, (tokenizer.vocab_size(), model_dim))
+    pos_emb = rng.normal(0, scale, (seq_len, model_dim))
 
-    # Output Layer
-    W_out = rng.normal(0, scale, (D, tokenizer.vocab_size))
+    # MHA 파라미터
+    Wq = rng.normal(0, scale, (model_dim, model_dim))
+    Wk = rng.normal(0, scale, (model_dim, model_dim))
+    Wv = rng.normal(0, scale, (model_dim, model_dim))
+    Wo = rng.normal(0, scale, (model_dim, model_dim))
 
-    # 2. Forward Pass 계산
+    # LayerNorm 파라미터: gain=1, bias=0 으로 시작 (학습 전엔 항등 변환)
+    ln1_gain = np.ones(model_dim)
+    ln1_bias = np.zeros(model_dim)
+
+    # FFN 파라미터 (보통 hidden 은 4 * D)
+    ffn_hidden = model_dim * 4
+    W1 = rng.normal(0, scale, (model_dim, ffn_hidden))
+    b1 = np.zeros(ffn_hidden)
+    W2 = rng.normal(0, scale, (ffn_hidden, model_dim))
+    b2 = np.zeros(model_dim)
+
+    ln2_gain = np.ones(model_dim)
+    ln2_bias = np.zeros(model_dim)
+
+    # 출력층
+    W_out = rng.normal(0, scale, (model_dim, tokenizer.vocab_size()))
+
+    # 2) Forward Pass
     print("\n1) Input Embedding + Positional Encoding")
-    x = tok_emb[ids] + pos_emb
-    
-    print("2) Transformer Block: Multi-Head Attention")
-    # Residual Connection + LayerNorm
-    x_norm = layer_norm(x, ln1_g, ln1_b)
-    attn_out = multi_head_attention(x_norm, Wq, Wk, Wv, Wo, n_heads=H)
-    x = x + attn_out
-    
-    print("3) Transformer Block: Feed-Forward Network")
-    # Residual Connection + LayerNorm
-    x_norm = layer_norm(x, ln2_g, ln2_b)
+    x = tok_emb[ids] + pos_emb  # (T, D)
+
+    print("2) Transformer Block: Multi-Head Attention (with residual + LayerNorm)")
+    x_norm = layer_norm(x, ln1_gain, ln1_bias)
+    attn_out = multi_head_attention(x_norm, Wq, Wk, Wv, Wo, n_heads=n_heads)
+    x = x + attn_out  # 잔차 연결
+
+    print("3) Transformer Block: Feed-Forward Network (with residual + LayerNorm)")
+    x_norm = layer_norm(x, ln2_gain, ln2_bias)
     ffn_out = feed_forward(x_norm, W1, b1, W2, b2)
-    x = x + ffn_out
-    
+    x = x + ffn_out  # 잔차 연결
+
     print("4) Output Linear Layer")
-    logits = x @ W_out # (T, V)
-    
-    # 3. 결과 출력
+    logits = x @ W_out  # (T, V)
+
+    # 3) 결과 출력
     last_probs = softmax(logits[-1])
-    top_indices = np.argsort(last_probs)[::-1][:5]
-    
+    sorted_indices_desc = np.argsort(last_probs)[::-1]
+    top_indices = sorted_indices_desc[:5]
+
     print(f"\n[마지막 토큰 '{tokenizer.decode([ids[-1]])}' 다음으로 올 확률이 높은 글자]")
     for idx in top_indices:
         print(f"  '{tokenizer.vocab[idx]}': {last_probs[idx]:.4f}")

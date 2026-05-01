@@ -1,102 +1,123 @@
 """Week 4 Complete: Self-Attention (Single Head).
 
-이 파일은 Self-Attention 메커니즘의 핵심 계산 과정을 하나의 파일로 통합한 교육용 코드입니다.
-데이터 로드부터 토큰화, 어텐션 가중치 계산 및 시각화 데모까지 순서대로 진행됩니다.
-
-주요 내용:
-1. CharTokenizer: 글자 단위 토크나이저
-2. Causal Masking: 미래 토큰을 가리는 기법
-3. Self-Attention: Query, Key, Value를 이용한 어텐션 점수 및 출력 계산
-4. Visualization: 특정 위치에서 어떤 토큰을 중요하게 보는지(Attention weights) 출력
+Self-Attention 의 핵심 아이디어:
+- 각 토큰이 "다른 토큰들 중 누구를 얼마나 참고할지" 를 학습하는 메커니즘.
+- 입력 X (T 개의 토큰 임베딩) 를 세 가지로 변환:
+    Q = X @ Wq  (질문, Query)
+    K = X @ Wk  (키,   Key)
+    V = X @ Wv  (값,   Value)
+- 점수: scores = Q @ K^T / sqrt(Dh)  ← "내가 누구와 얼마나 비슷한가"
+- causal mask: 미래 토큰을 -무한대로 가려서 못 보게 함 (언어모델 가정)
+- 가중치: weights = softmax(scores)
+- 출력: out = weights @ V  ← 가중평균
 
 실행 방법:
 - 데모: python week4/code/week4_complete.py --input week4/data/tiny_corpus_ko.txt
 """
 
-from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가
-
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 
 
 # ============================================================================
-# 1. Utility Functions & Classes
+# 1. CharTokenizer + softmax
 # ============================================================================
 
-# CharTokenizer 는 다음 파이썬 전용 문법을 사용한다:
-# - @dataclass / @property / @classmethod 데코레이터
-# - tuple[str, ...] 같은 빌트인 제네릭 타입 표기
-# - 딕셔너리/리스트 컴프리헨션, 튜플 언패킹, 제너레이터 식
-@dataclass
 class CharTokenizer:
-    """글자 단위 토크나이저."""
-    vocab: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if len(self.vocab) == 0:
+    def __init__(self, vocab):
+        if len(vocab) == 0:
             raise ValueError("vocab empty")
-        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+        self.vocab = vocab
 
-    @property
-    def vocab_size(self) -> int:
+        self.char_to_id = {}
+        for i in range(len(vocab)):
+            self.char_to_id[vocab[i]] = i
+
+    def vocab_size(self):
         return len(self.vocab)
 
-    @classmethod
-    def from_text(cls, text: str) -> CharTokenizer:
-        return cls(tuple(sorted(set(text))))
+    def encode(self, text):
+        ids = []
+        for ch in text:
+            ids.append(self.char_to_id[ch])
+        return ids
 
-    def encode(self, text: str) -> list[int]:
-        return [self.char_to_id[ch] for ch in text]
+    def decode(self, ids):
+        chars = []
+        for token_id in ids:
+            chars.append(self.vocab[token_id])
+        return "".join(chars)
 
-    def decode(self, ids: list[int]) -> str:
-        return "".join(self.vocab[i] for i in ids)
+
+def build_tokenizer_from_text(text):
+    return CharTokenizer(sorted(set(text)))
 
 
-def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
+def softmax(logits, axis=-1):
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
 # ============================================================================
-# 2. Self-Attention Implementation
+# 2. Self-Attention
 # ============================================================================
 
-def causal_mask(scores: np.ndarray) -> np.ndarray:
-    """미래 토큰 정보를 보이지 않게 -1e9(매우 낮은 값)로 마스킹합니다."""
-    T = scores.shape[0]
-    mask = np.triu(np.ones((T, T)), k=1).astype(bool)
+def make_causal_mask(seq_len):
+    """미래 위치를 가리는 (T, T) bool 마스크.
+
+    예) T=3 이면
+        [[F, T, T],
+         [F, F, T],
+         [F, F, F]]
+    True 인 자리는 "보면 안 되는 미래" → 점수를 -무한대로 만든다.
+    """
+    mask = np.zeros((seq_len, seq_len), dtype=bool)
+    for i in range(seq_len):
+        for j in range(seq_len):
+            if j > i:
+                mask[i, j] = True
+    return mask
+
+
+def apply_causal_mask(scores):
+    """scores 의 미래 위치를 -1e9 (사실상 -무한대) 로 만든다."""
+    seq_len = scores.shape[0]
+    mask = make_causal_mask(seq_len)
+
     masked = scores.copy()
-    masked[mask] = -1e9
+    for i in range(seq_len):
+        for j in range(seq_len):
+            if mask[i, j]:
+                masked[i, j] = -1e9
     return masked
 
 
-def self_attention(X: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray, causal: bool = True) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Query, Key, Value를 이용한 Self-Attention 계산
-    X: (T, D), W: (D, Dh) -> Weights: (T, T), Output: (T, Dh)
+def self_attention(X, Wq, Wk, Wv, causal=True):
+    """단일 헤드 Self-Attention.
 
-    반환값이 두 개라서 호출 측에서 `weights, out = self_attention(...)` 식의 튜플 언패킹이 가능.
+    입력 모양: X (T, D), Wq/Wk/Wv (D, Dh)
+    출력: weights (T, T), out (T, Dh)
     """
-    # `@` 연산자: 파이썬 3.5+ 의 행렬곱 전용 연산자. 일반 곱셈 `*` 와 구분된다.
+    # `@` 는 행렬곱.
     Q = X @ Wq  # (T, Dh)
     K = X @ Wk  # (T, Dh)
     V = X @ Wv  # (T, Dh)
-    
-    Dh = Q.shape[1]
-    # Dot-product 유사도 계산 및 스케일링
-    scores = (Q @ K.T) / np.sqrt(Dh)
-    
+
+    head_dim = Q.shape[1]
+    # K.T 는 K 의 transpose. 결과: (T, T) 점수 행렬.
+    scores = (Q @ K.T) / np.sqrt(head_dim)
+
     if causal:
-        scores = causal_mask(scores)
-    
-    # Softmax를 통해 가중치(확률)로 변환
+        scores = apply_causal_mask(scores)
+
+    # 행마다 softmax: weights[i] 는 "i번째 토큰이 각 토큰을 얼마나 볼지" 의 분포
     weights = softmax(scores, axis=1)
-    # 가중치와 Value의 결합
+
+    # 가중치와 V 의 행렬곱 → 가중평균된 표현 (T, Dh)
     out = weights @ V
-    
+
     return weights, out
 
 
@@ -104,7 +125,7 @@ def self_attention(X: np.ndarray, Wq: np.ndarray, Wk: np.ndarray, Wv: np.ndarray
 # 3. Main Execution Flow
 # ============================================================================
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="입력 텍스트 파일 경로")
     parser.add_argument("--tokens", type=int, default=20, help="분석할 토큰 수")
@@ -112,44 +133,47 @@ def main() -> None:
     parser.add_argument("--no_causal", action="store_true", help="Causal Masking 비활성화")
     args = parser.parse_args()
 
-    # 데이터 로드
     data_path = Path(args.input)
     if not data_path.exists():
         print(f"데이터 파일이 없습니다: {data_path}")
         return
     text = data_path.read_text(encoding="utf-8")
-    
-    # 1. 토크나이저 및 임베딩 준비 (데모를 위해 랜덤 임베딩 사용)
-    tokenizer = CharTokenizer.from_text(text)
-    full_ids = tokenizer.encode(text)
-    T = min(args.tokens, len(full_ids))
-    ids = full_ids[:T]
-    
-    D = 16  # Embedding dimension
-    Dh = 16 # Head dimension
-    rng = np.random.default_rng(42)
-    
-    # 가상의 임베딩 테이블 및 투영 행렬
-    E = rng.normal(0, 0.1, (tokenizer.vocab_size, D))
-    X = E[ids] # (T, D)
-    
-    Wq = rng.normal(0, 0.1, (D, Dh))
-    Wk = rng.normal(0, 0.1, (D, Dh))
-    Wv = rng.normal(0, 0.1, (D, Dh))
 
-    # 2. Self-Attention 계산
+    # 1) 토크나이저 + 임베딩 준비 (데모를 위해 랜덤 임베딩 사용)
+    tokenizer = build_tokenizer_from_text(text)
+    full_ids = tokenizer.encode(text)
+
+    seq_len = min(args.tokens, len(full_ids))
+    ids = full_ids[:seq_len]  # 앞에서 seq_len 개만 사용
+
+    embed_dim = 16
+    head_dim = 16
+    rng = np.random.default_rng(42)
+
+    # 가상의 임베딩 테이블 + 투영 행렬
+    E = rng.normal(0, 0.1, (tokenizer.vocab_size(), embed_dim))
+
+    # X[i] = E[ids[i]] 와 같음 (numpy fancy indexing)
+    X = E[ids]  # (T, D)
+
+    Wq = rng.normal(0, 0.1, (embed_dim, head_dim))
+    Wk = rng.normal(0, 0.1, (embed_dim, head_dim))
+    Wv = rng.normal(0, 0.1, (embed_dim, head_dim))
+
+    # 2) Self-Attention 계산
     causal = not args.no_causal
     weights, out = self_attention(X, Wq, Wk, Wv, causal=causal)
-    
-    # 3. 결과 출력
-    pos = args.pos if args.pos >= 0 else T - 1
-    print(f"--- Self-Attention Demo (T={T}, Causal={causal}) ---")
+
+    # 3) 결과 출력
+    pos = args.pos if args.pos >= 0 else seq_len - 1
+    print(f"--- Self-Attention Demo (T={seq_len}, Causal={causal}) ---")
     print(f"분석 위치 [{pos}]: '{tokenizer.decode([ids[pos]])}'")
-    
+
     print("\nAttention 가중치 (상위 5개):")
     row = weights[pos]
-    # `[::-1]` 슬라이싱(역순) + `[:5]` 슬라이싱(앞 5개). 파이썬 전용 표기.
-    top_indices = np.argsort(row)[::-1][:5]
+    # 큰 값부터 정렬한 인덱스 (앞 5개)
+    sorted_indices_desc = np.argsort(row)[::-1]
+    top_indices = sorted_indices_desc[:5]
     for idx in top_indices:
         target_char = tokenizer.decode([ids[idx]])
         print(f"  to [{idx:2d}] '{target_char}': {row[idx]:.4f}")
