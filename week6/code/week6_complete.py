@@ -1,15 +1,16 @@
 """Week 6 Complete: Language Model Evaluation.
 
-이 파일은 학습된 언어모델의 성능을 측정하는 과정(Loss, Perplexity)을
-하나의 파일에서 순서대로 읽고 실행할 수 있도록 통합한 교육용 코드입니다.
+학습된 언어모델이 얼마나 좋은지 측정하는 두 가지 지표:
 
-주요 내용:
-1. CharTokenizer: 글자 단위 토크나이저
-2. Metrics: Cross Entropy Loss 및 Perplexity (PPL) 계산
-3. Evaluation: 
-   - Count-based Bigram 평가
-   - Neural Bigram 평가
-   - MLP LM 평가
+1) Cross Entropy Loss = -log(정답 토큰의 예측 확률) 의 평균
+2) Perplexity (PPL) = exp(loss)
+   - "모델이 다음 글자를 고를 때 평균적으로 몇 개 후보 사이에서 헤매는지" 라고 보면 됨
+   - 작을수록 좋다.
+
+세 가지 모델을 같은 평가 데이터로 비교:
+- Count-based Bigram (week1)
+- Neural Bigram      (week2)
+- MLP LM             (week3)
 
 실행 방법:
 - Count Bigram 평가: python week6/code/week6_complete.py --counts --data week6/data/tiny_corpus_ko.txt
@@ -17,71 +18,75 @@
 - MLP LM 평가: python week6/code/week6_complete.py --mlp_lm --model_path week3/code/mlp_model.npz --data week6/data/tiny_corpus_ko.txt
 """
 
-from __future__ import annotations  # 파이썬 전용: 타입 힌트를 문자열로 평가
-
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 
 
 # ============================================================================
-# 1. Utility Functions & Classes
+# 1. CharTokenizer + softmax
 # ============================================================================
 
-# CharTokenizer: 파이썬 전용 문법(@dataclass, @property, @classmethod,
-# tuple[str, ...] 빌트인 제네릭, 컴프리헨션, 튜플 언패킹)을 사용한다.
-@dataclass
 class CharTokenizer:
-    """글자 단위 토크나이저."""
-    vocab: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if len(self.vocab) == 0:
+    def __init__(self, vocab):
+        if len(vocab) == 0:
             raise ValueError("vocab empty")
-        self.char_to_id = {ch: i for i, ch in enumerate(self.vocab)}
+        self.vocab = vocab
 
-    @property
-    def vocab_size(self) -> int:
+        self.char_to_id = {}
+        for i in range(len(vocab)):
+            self.char_to_id[vocab[i]] = i
+
+    def vocab_size(self):
         return len(self.vocab)
 
-    @classmethod
-    def from_text(cls, text: str) -> CharTokenizer:
-        return cls(tuple(sorted(set(text))))
+    def encode(self, text):
+        ids = []
+        for ch in text:
+            ids.append(self.char_to_id[ch])
+        return ids
 
-    def encode(self, text: str) -> list[int]:
-        return [self.char_to_id[ch] for ch in text]
+    def decode(self, ids):
+        chars = []
+        for token_id in ids:
+            chars.append(self.vocab[token_id])
+        return "".join(chars)
 
-    def decode(self, ids: list[int]) -> str:
-        return "".join(self.vocab[i] for i in ids)
+
+def build_tokenizer_from_text(text):
+    return CharTokenizer(sorted(set(text)))
 
 
-def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
+def softmax(logits, axis=-1):
     shifted = logits - logits.max(axis=axis, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=axis, keepdims=True)
 
 
-def calculate_metrics(logits: np.ndarray, targets: np.ndarray) -> tuple[float, float]:
-    """Loss와 Perplexity를 계산합니다.
+# ============================================================================
+# 2. 평가 지표
+# ============================================================================
 
-    반환 타입 `tuple[float, float]` 는 두 값을 묶어 돌려준다는 의미.
-    호출 측에서 `loss, ppl = calculate_metrics(...)` 처럼 튜플 언패킹으로 받을 수 있다.
-    """
+def calculate_loss_and_ppl(logits, targets):
+    """logits (N, V) 와 정답 targets (N,) 으로 loss 와 perplexity 계산."""
     probs = softmax(logits, axis=-1)
-    # 정답 토큰의 확률 추출 (넘파이 advanced indexing: 행 인덱스와 열 인덱스를 동시에 지정)
-    target_probs = probs[np.arange(len(targets)), targets]
-    # Numerical stability를 위해 아주 작은 값을 더해줌
-    loss = -np.log(target_probs + 1e-10).mean()
+
+    # 정답 위치의 확률만 모은다
+    correct_probs = np.zeros(len(targets))
+    for i in range(len(targets)):
+        correct_probs[i] = probs[i, targets[i]]
+
+    # cross entropy = -log(정답 확률) 의 평균
+    loss = -np.log(correct_probs + 1e-10).mean()
     ppl = np.exp(loss)
     return float(loss), float(ppl)
 
 
 # ============================================================================
-# 2. Main Execution Flow
+# 3. Main Execution Flow
 # ============================================================================
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--counts", action="store_true", help="Count Bigram 평가")
     parser.add_argument("--bigram_nn", action="store_true", help="Neural Bigram 평가")
@@ -90,7 +95,6 @@ def main() -> None:
     parser.add_argument("--model_path", help="평가할 모델 파일 경로 (.npz)")
     args = parser.parse_args()
 
-    # 평가 데이터 로드
     data_path = Path(args.data)
     if not data_path.exists():
         print(f"데이터 파일이 없습니다: {data_path}")
@@ -99,21 +103,27 @@ def main() -> None:
 
     if args.counts:
         print("--- Count-based Bigram Evaluation ---")
-        tokenizer = CharTokenizer.from_text(eval_text)
+        tokenizer = build_tokenizer_from_text(eval_text)
         ids = np.array(tokenizer.encode(eval_text))
-        V = tokenizer.vocab_size
+        vocab_size = tokenizer.vocab_size()
 
-        # 훈련 데이터로부터 카운트를 구해야 하지만, 데모를 위해 동일 데이터를 씀
-        counts = np.zeros((V, V))
-        # 슬라이싱: `ids[:-1]` 은 마지막 빼고 전부, `ids[1:]` 은 첫 번째 빼고 전부.
-        # 두 배열을 함께 인덱스로 넘기면 (이전 글자, 다음 글자) 위치들에 1씩 누적된다.
-        np.add.at(counts, (ids[:-1], ids[1:]), 1)
+        # 빈도수 행렬 만들기 (이전 글자, 다음 글자)
+        counts = np.zeros((vocab_size, vocab_size))
+        for i in range(len(ids) - 1):
+            prev_id = ids[i]
+            next_id = ids[i + 1]
+            counts[prev_id, next_id] += 1
 
-        # 확률로 변환 (Laplace smoothing 적용하여 0 확률 방지)
-        probs = (counts + 0.1) / (counts + 0.1).sum(axis=1, keepdims=True)
+        # Laplace smoothing 적용 후 행 정규화
+        smoothed = counts + 0.1
+        probs = smoothed / smoothed.sum(axis=1, keepdims=True)
 
-        # 정답 글자들의 확률 로그 평균 (넘파이 advanced indexing)
-        eval_probs = probs[ids[:-1], ids[1:]]
+        # 평가: 각 (prev -> next) 쌍에 대해 정답 확률을 모은다
+        n_pairs = len(ids) - 1
+        eval_probs = np.empty(n_pairs)
+        for i in range(n_pairs):
+            eval_probs[i] = probs[ids[i], ids[i + 1]]
+
         loss = -np.log(eval_probs).mean()
         ppl = np.exp(loss)
         print(f"Loss: {loss:.4f}, Perplexity: {ppl:.2f}")
@@ -122,14 +132,19 @@ def main() -> None:
         if not args.model_path or not Path(args.model_path).exists():
             print("올바른 모델 경로를 지정해주세요.")
             return
-        
+
         ckpt = np.load(args.model_path, allow_pickle=True)
         W = ckpt["W"]
-        tokenizer = CharTokenizer(tuple(ckpt["vocab"]))
-        
+        vocab = list(ckpt["vocab"])
+        tokenizer = CharTokenizer(vocab)
+
         ids = np.array(tokenizer.encode(eval_text))
-        logits = W[ids[:-1]]
-        loss, ppl = calculate_metrics(logits, ids[1:])
+        # 입력: 이전 글자들 (logits = W[prev_id])
+        prev_ids = ids[:-1]
+        next_ids = ids[1:]
+        logits = W[prev_ids]  # (N, V)
+
+        loss, ppl = calculate_loss_and_ppl(logits, next_ids)
         print(f"--- Neural Bigram Evaluation (Model: {args.model_path}) ---")
         print(f"Loss: {loss:.4f}, Perplexity: {ppl:.2f}")
 
@@ -137,29 +152,35 @@ def main() -> None:
         if not args.model_path or not Path(args.model_path).exists():
             print("올바른 모델 경로를 지정해주세요.")
             return
-        
+
         ckpt = np.load(args.model_path, allow_pickle=True)
-        tokenizer = CharTokenizer(tuple(ckpt["vocab"]))
-        # 다중 대입(튜플 언패킹): 오른쪽이 5개 짜리 튜플로 묶여 5개 변수에 한 번에 할당된다.
-        # 자바에는 없는 문법, C# 의 ValueTuple deconstruction 과 비슷.
-        E, W1, b1, W2, b2 = ckpt["E"], ckpt["W1"], ckpt["b1"], ckpt["W2"], ckpt["b2"]
-        C = int(ckpt["context_len"])
-        
+        vocab = list(ckpt["vocab"])
+        tokenizer = CharTokenizer(vocab)
+        E = ckpt["E"]
+        W1 = ckpt["W1"]
+        b1 = ckpt["b1"]
+        W2 = ckpt["W2"]
+        b2 = ckpt["b2"]
+        context_len = int(ckpt["context_len"])
+
         ids = np.array(tokenizer.encode(eval_text))
-        # Dataset 생성
-        n = len(ids) - C
-        X = np.empty((n, C), dtype=np.int64)
+
+        # 슬라이딩 윈도우로 (입력 컨텍스트, 정답 다음 글자) 만들기
+        n = len(ids) - context_len
+        X = np.empty((n, context_len), dtype=np.int64)
         y = np.empty((n,), dtype=np.int64)
         for i in range(n):
-            X[i] = ids[i : i + C]
-            y[i] = ids[i + C]
-        
-        # Forward pass (평가용이므로 배치 처리 생략하고 전체 계산)
-        emb = E[X]
-        h = np.tanh(emb.reshape(len(X), -1) @ W1 + b1)
-        logits = h @ W2 + b2
-        
-        loss, ppl = calculate_metrics(logits, y)
+            for k in range(context_len):
+                X[i, k] = ids[i + k]
+            y[i] = ids[i + context_len]
+
+        # Forward (MLP) — 평가용이라 배치 분할 없이 한 번에 계산
+        emb = E[X]                              # (N, C, D)
+        h_in = emb.reshape(len(X), -1)          # (N, C*D)
+        h = np.tanh(h_in @ W1 + b1)             # (N, H)
+        logits = h @ W2 + b2                    # (N, V)
+
+        loss, ppl = calculate_loss_and_ppl(logits, y)
         print(f"--- MLP LM Evaluation (Model: {args.model_path}) ---")
         print(f"Loss: {loss:.4f}, Perplexity: {ppl:.2f}")
 
